@@ -150,6 +150,17 @@ public class MainFrame extends JFrame {
             }
 
             @Override
+            public void onBuzzerChanged(ReaderConnection connection, boolean buzzerOn) {
+                SwingUtilities.invokeLater(() -> {
+                    int index = findConnectionIndex(connection);
+                    if (index >= 0) {
+                        statusPanel.updateBuzzerStatus(index, buzzerOn);
+                        saveConfig();
+                    }
+                });
+            }
+
+            @Override
             public void onLog(ReaderConnection connection, String message) {
                 SwingUtilities.invokeLater(() ->
                     logPanel.appendLog(connection.getConfig().getName(), message)
@@ -164,7 +175,7 @@ public class MainFrame extends JFrame {
         };
 
         readerManager.initialize(configs, statusListener, tagListener);
-        statusPanel.initialize(configs, readerManager);
+        statusPanel.initialize(configs, readerManager, this::saveConfig);
     }
 
     /** ReaderConnection의 인덱스 찾기 */
@@ -174,6 +185,11 @@ public class MainFrame extends JFrame {
             if (connections.get(i) == connection) return i;
         }
         return -1;
+    }
+
+    /** 현재 설정을 파일에 저장 */
+    private void saveConfig() {
+        ReaderConfig.saveToFile(CONFIG_FILE, configs);
     }
 
     /** 설정 다이얼로그 열기 */

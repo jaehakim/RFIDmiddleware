@@ -39,7 +39,7 @@ public class ReaderStatusPanel extends JPanel {
     }
 
     /** 리더기 아이콘 초기화 - readers.cfg 개수만큼 동적 생성 */
-    public void initialize(List<ReaderConfig> configs, ReaderManager manager) {
+    public void initialize(List<ReaderConfig> configs, ReaderManager manager, Runnable onConfigChanged) {
         iconContainer.removeAll();
         icons.clear();
 
@@ -53,7 +53,21 @@ public class ReaderStatusPanel extends JPanel {
                 () -> manager.startInventory(index),
                 () -> manager.stopInventory(index),
                 () -> manager.lightOn(index),
-                () -> manager.lightOff(index)
+                () -> manager.lightOff(index),
+                () -> manager.buzzerOn(index),
+                () -> manager.buzzerOff(index),
+                () -> ReaderIconComponent.showAntennaConfigDialog(
+                    icon,
+                    cfg.getAntennaPowers(), cfg.getDwellTime(),
+                    powers -> {
+                        manager.setAntennaConfig(index, powers);
+                        if (onConfigChanged != null) onConfigChanged.run();
+                    },
+                    (onTime, offTime) -> {
+                        manager.setDwellTime(index, onTime, offTime);
+                        if (onConfigChanged != null) onConfigChanged.run();
+                    }
+                )
             );
             icons.add(icon);
             iconContainer.add(icon);
@@ -110,6 +124,13 @@ public class ReaderStatusPanel extends JPanel {
     public void updateLightStatus(int index, boolean lightOn) {
         if (index >= 0 && index < icons.size()) {
             icons.get(index).setLightOn(lightOn);
+        }
+    }
+
+    /** 특정 리더기 부저 상태 업데이트 */
+    public void updateBuzzerStatus(int index, boolean buzzerOn) {
+        if (index >= 0 && index < icons.size()) {
+            icons.get(index).setBuzzerOn(buzzerOn);
         }
     }
 

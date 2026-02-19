@@ -110,6 +110,34 @@ public class ReaderManager {
         }
     }
 
+    /** 개별 부저 ON */
+    public void buzzerOn(int index) {
+        if (index >= 0 && index < connections.size()) {
+            executor.submit(() -> connections.get(index).buzzerOn());
+        }
+    }
+
+    /** 개별 부저 OFF */
+    public void buzzerOff(int index) {
+        if (index >= 0 && index < connections.size()) {
+            executor.submit(() -> connections.get(index).buzzerOff());
+        }
+    }
+
+    /** 개별 안테나 출력 설정 */
+    public void setAntennaConfig(int index, int[] powers) {
+        if (index >= 0 && index < connections.size()) {
+            executor.submit(() -> connections.get(index).setAntennaConfig(powers));
+        }
+    }
+
+    /** 개별 드웰시간 설정 */
+    public void setDwellTime(int index, short onTime, short offTime) {
+        if (index >= 0 && index < connections.size()) {
+            executor.submit(() -> connections.get(index).setDwellTime(onTime, offTime));
+        }
+    }
+
     /** 종료 시 정리 */
     public void shutdown() {
         for (ReaderConnection conn : connections) {

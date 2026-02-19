@@ -39,6 +39,7 @@ public class TagData {
 
     /** 리더기+EPC 조합으로 유니크 키 생성 */
     public String getKey() {
-        return readerName + ":" + epc;
+        //return readerName + ":" + epc;//리더기+EPC 조합으로 유니크 키 생성
+		return epc;//EPC 로 유니크 키 생성
     }
 }

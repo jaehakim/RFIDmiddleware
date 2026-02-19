@@ -279,9 +279,6 @@ public class MainFrame extends JFrame {
         dialog.setVisible(true);
 
         if (dialog.isConfirmed()) {
-            // 기존 연결 정리
-            readerManager.shutdown();
-
             configs = dialog.getConfigs();
             ReaderConfig.saveToFile(CONFIG_FILE, configs);
             logPanel.appendLog("Config saved: " + configs.size() + " reader(s)");

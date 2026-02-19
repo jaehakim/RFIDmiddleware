@@ -10,11 +10,15 @@ import java.util.concurrent.Executors;
 
 public class ReaderManager {
     private final List<ReaderConnection> connections = new ArrayList<>();
-    private final ExecutorService executor = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r);
-        t.setDaemon(true);
-        return t;
-    });
+    private ExecutorService executor = createExecutor();
+
+    private static ExecutorService createExecutor() {
+        return Executors.newCachedThreadPool(r -> {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            return t;
+        });
+    }
 
     public List<ReaderConnection> getConnections() {
         return Collections.unmodifiableList(connections);
@@ -24,9 +28,16 @@ public class ReaderManager {
     public void initialize(List<ReaderConfig> configs,
                            ReaderConnection.ReaderConnectionListener statusListener,
                            ReaderConnection.TagDataListener tagListener) {
-        // 기존 연결 정리
-        disconnectAll();
+        // 기존 연결 동기 정리
+        for (ReaderConnection conn : connections) {
+            try { conn.disconnect(); } catch (Exception ignored) {}
+        }
         connections.clear();
+
+        // executor가 종료된 경우 재생성
+        if (executor.isShutdown()) {
+            executor = createExecutor();
+        }
 
         for (ReaderConfig cfg : configs) {
             ReaderConnection conn = new ReaderConnection(cfg);

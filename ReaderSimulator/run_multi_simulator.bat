@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul 2>&1
 setlocal enabledelayedexpansion
-title APULSE Air3x Multi-Simulator Launcher
+title Multi-Simulator Launcher
 
 set COUNT=%~1
 set START_PORT=%~2
@@ -26,7 +26,7 @@ echo.
 for /L %%i in (1,1,%COUNT%) do (
     set /a PORT=%START_PORT%+%%i-1
     echo  [!PORT!] Starting ...
-    start "Air3x [TCP:!PORT!]" cmd /k "cd /d "%~dp0" && java ReaderSimulator --port !PORT! --udp-port 0"
+    start "Simulator [TCP:!PORT!]" cmd /k "cd /d "%~dp0" && java ReaderSimulator --port !PORT! --udp-port 0"
     timeout /t 1 /nobreak >nul
 )
 

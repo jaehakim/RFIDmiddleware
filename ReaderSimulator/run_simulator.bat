@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul 2>&1
-title APULSE Air3x Simulator
+title Reader Simulator
 
 cd /d "%~dp0"
 

@@ -2,6 +2,8 @@
 chcp 65001 >nul 2>&1
 title APULSE Air3x Simulator
 
+cd /d "%~dp0"
+
 echo Compiling ReaderSimulator.java ...
 javac ReaderSimulator.java
 if errorlevel 1 (

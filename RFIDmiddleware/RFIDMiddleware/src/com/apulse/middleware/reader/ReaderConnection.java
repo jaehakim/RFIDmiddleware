@@ -210,41 +210,20 @@ public class ReaderConnection {
     /**
      * 리더기 보고 데이터 처리.
      * 인벤토리 보고 포맷:
-     * reportData에서 EPC와 RSSI를 추출한다.
-     * 일반적인 인벤토리 보고 cmdCode 범위: 0x01xx 계열
+     *   [PC(2)][EPC(N)][CRC(2)][Antenna(1)][RSSI(1)][Count(1)]
+     * PC bits[15:11] = EPC 워드 수
      */
     private void handleReport(int readerId, int cmdCode, byte[] reportData, int reportDataLen) {
-        // DEBUG: always print raw callback data
         System.out.println(String.format("[DEBUG-%s] cmdCode=0x%02X, len=%d, raw=%s",
             config.getName(), cmdCode, reportDataLen,
             HexUtils.bytesToHex(reportData, 0, Math.min(reportDataLen, 50))));
 
-        if (reportData == null || reportDataLen < 6) {
+        if (reportData == null || reportDataLen < 7) {
             return;
         }
 
         try {
             int offset = 0;
-            int rssi = 0;
-
-            // Check if reportData includes full frame (starts with 434D)
-            if (reportDataLen > 7
-                && (reportData[0] & 0xFF) == 0x43
-                && (reportData[1] & 0xFF) == 0x4D) {
-                // Full frame: [434D][cmdCode(1)][len(2)][data...][crc(2)]
-                int dataLen = ((reportData[3] & 0xFF) << 8) | (reportData[4] & 0xFF);
-                offset = 5; // skip header(2) + cmdCode(1) + len(2)
-                reportDataLen = Math.min(offset + dataLen, reportDataLen);
-            }
-
-            if (reportDataLen - offset < 5) {
-                return;
-            }
-
-            // First byte of data: RSSI or antenna info
-            rssi = reportData[offset] & 0xFF;
-            if (rssi > 127) rssi = rssi - 256;
-            offset += 1;
 
             // PC (Protocol Control) 2 bytes
             int pc = ((reportData[offset] & 0xFF) << 8) | (reportData[offset + 1] & 0xFF);
@@ -254,20 +233,31 @@ public class ReaderConnection {
             int epcWordCount = (pc >> 11) & 0x1F;
             int epcByteLen = epcWordCount * 2;
 
-            if (epcByteLen > 0 && offset + epcByteLen <= reportDataLen) {
-                String epc = HexUtils.bytesToHex(reportData, offset, epcByteLen);
-                System.out.println(String.format("[DEBUG-%s] EPC=%s, RSSI=%d, PC=0x%04X, words=%d",
-                    config.getName(), epc, rssi, pc, epcWordCount));
-                for (TagDataListener l : tagListeners) {
-                    l.onTagRead(this, epc, rssi);
-                }
-            } else if (reportDataLen - offset >= 4) {
-                String epc = HexUtils.bytesToHex(reportData, offset, reportDataLen - offset);
-                System.out.println(String.format("[DEBUG-%s] EPC(fallback)=%s, RSSI=%d",
-                    config.getName(), epc, rssi));
-                for (TagDataListener l : tagListeners) {
-                    l.onTagRead(this, epc, rssi);
-                }
+            if (epcByteLen <= 0 || offset + epcByteLen + 3 > reportDataLen) {
+                return;
+            }
+
+            String epc = HexUtils.bytesToHex(reportData, offset, epcByteLen);
+            offset += epcByteLen;
+
+            // CRC (2 bytes) - skip
+            offset += 2;
+
+            // Antenna (1 byte)
+            int antenna = (offset < reportDataLen) ? (reportData[offset] & 0xFF) : 0;
+            offset += 1;
+
+            // RSSI (1 byte, signed)
+            int rssi = 0;
+            if (offset < reportDataLen) {
+                rssi = reportData[offset];  // signed byte
+            }
+
+            System.out.println(String.format("[DEBUG-%s] EPC=%s, RSSI=%d, Ant=%d, PC=0x%04X",
+                config.getName(), epc, rssi, antenna, pc));
+
+            for (TagDataListener l : tagListeners) {
+                l.onTagRead(this, epc, rssi);
             }
         } catch (Exception e) {
             log("Report parse error: " + HexUtils.bytesToHex(reportData, 0, reportDataLen));

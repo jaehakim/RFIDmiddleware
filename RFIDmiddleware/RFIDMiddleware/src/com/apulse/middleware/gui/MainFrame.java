@@ -1,9 +1,13 @@
 package com.apulse.middleware.gui;
 
+import com.apulse.middleware.config.DatabaseConfig;
 import com.apulse.middleware.config.ReaderConfig;
+import com.apulse.middleware.db.DatabaseManager;
+import com.apulse.middleware.db.TagRepository;
 import com.apulse.middleware.reader.ReaderConnection;
 import com.apulse.middleware.reader.ReaderManager;
 import com.apulse.middleware.reader.ReaderStatus;
+import com.apulse.middleware.util.HexUtils;
 
 import javax.swing.*;
 import java.awt.*;
@@ -29,9 +33,14 @@ public class MainFrame extends JFrame {
         setMinimumSize(new Dimension(700, 500));
         setLocationRelativeTo(null);
 
+        // DB/캐시 초기화
+        DatabaseConfig dbConfig = new DatabaseConfig();
+        DatabaseManager.getInstance().initialize(dbConfig);
+        TagRepository.getInstance().start();
+
         readerManager = new ReaderManager();
         statusPanel = new ReaderStatusPanel();
-        tagDataPanel = new TagDataPanel();
+        tagDataPanel = new TagDataPanel(dbConfig.getCacheTtlSeconds(), dbConfig.getCacheMaxSize());
         logPanel = new LogPanel();
 
         initLayout();
@@ -49,6 +58,8 @@ public class MainFrame extends JFrame {
                 if (result == JOptionPane.YES_OPTION) {
                     logPanel.appendLog("Shutting down...");
                     readerManager.shutdown();
+                    TagRepository.getInstance().shutdown();
+                    DatabaseManager.getInstance().shutdown();
                     dispose();
                     System.exit(0);
                 }
@@ -139,6 +150,10 @@ public class MainFrame extends JFrame {
                     if (index >= 0) {
                         statusPanel.updateStatus(index, newStatus);
                     }
+                    // FETCH된 안테나 설정을 readers.cfg에 영구 반영
+                    if (newStatus == ReaderStatus.CONNECTED) {
+                        saveConfig();
+                    }
                 });
             }
 
@@ -172,9 +187,16 @@ public class MainFrame extends JFrame {
         };
 
         ReaderConnection.TagDataListener tagListener = (connection, epc, rssi) -> {
-            SwingUtilities.invokeLater(() ->
-                tagDataPanel.addTag(connection.getConfig().getName(), epc, rssi)
-            );
+            SwingUtilities.invokeLater(() -> {
+                boolean isNew = tagDataPanel.addTag(
+                    connection.getConfig().getName(), epc, rssi);
+                if (isNew) {
+                    // 캐시 MISS → DB 저장
+                    TagRepository.getInstance().insertTagRead(
+                        epc, connection.getConfig().getName(),
+                        rssi, HexUtils.nowShort());
+                }
+            });
         };
 
         readerManager.initialize(configs, statusListener, tagListener);
@@ -209,7 +231,7 @@ public class MainFrame extends JFrame {
             + "<tr><td><b style='color:#FFC800;'>&#9632;</b></td>"
             +     "<td><b>연결 중</b></td><td>리더기에 TCP 연결을 시도하는 중</td></tr>"
             + "<tr><td><b style='color:#00B400;'>&#9632;</b></td>"
-            +     "<td><b>연결됨</b></td><td>리더기와 정상 연결된 상태</td></tr>"
+            +     "<td><b>연결됨</b></td><td>리더기와 정상 연결된 상태 (안테나 설정 자동 수신 완료)</td></tr>"
             + "<tr><td><b style='color:#0078FF;'>&#9632;</b></td>"
             +     "<td><b>읽기 중</b></td><td>인벤토리 실행 중 (태그 읽기 동작, 점멸)</td></tr>"
             + "<tr><td><b style='color:#DC0000;'>&#9632;</b></td>"
@@ -234,6 +256,13 @@ public class MainFrame extends JFrame {
             + "<tr><td><b>안테나 설정</b></td><td>안테나 출력(dBm) 및 드웰시간(ms) 설정</td></tr>"
             + "</table>"
 
+            + "<h3>연결 시 설정 동작</h3>"
+            + "<table cellpadding='3' cellspacing='0' border='0'>"
+            + "<tr><td><b>안테나/드웰</b></td><td>리더기의 실제 설정값을 자동으로 가져와 표시 (FETCH)</td></tr>"
+            + "<tr><td><b>부저</b></td><td>저장된 설정값을 리더기에 적용 (PUSH)</td></tr>"
+            + "<tr><td><b>설정 저장</b></td><td>가져온 설정값이 readers.cfg에 자동 저장됨</td></tr>"
+            + "</table>"
+
             // --- 태그 데이터 ---
             + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>태그 데이터</h2>"
             + "<table cellpadding='4' cellspacing='0' border='0'>"
@@ -249,6 +278,7 @@ public class MainFrame extends JFrame {
             + "<tr><td><b>중복제거</b></td><td>체크 시 동일 EPC를 하나의 행으로 병합 (횟수 증가)</td></tr>"
             + "<tr><td><b>초기화</b></td><td>태그 데이터 전체 삭제</td></tr>"
             + "<tr><td><b>엑셀 저장</b></td><td>현재 태그 목록을 .xls 파일로 내보내기</td></tr>"
+            + "<tr><td><b>DB 조회</b></td><td>기간을 지정하여 DB에 저장된 태그 이력 조회</td></tr>"
             + "</table>"
 
             // --- 로그 ---

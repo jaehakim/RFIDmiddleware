@@ -23,13 +23,16 @@ xcopy /s /q /y "%SRC_DIR%\*" "%BUILD_TMP%\src\" >nul
 
 echo [3/4] Compiling...
 if not exist "%BUILD_TMP%\out" mkdir "%BUILD_TMP%\out"
-javac -encoding UTF-8 -cp "%BUILD_TMP%\libs\FixedReaderLib.jar;%BUILD_TMP%\libs\ReaderFinderLib.jar" -d "%BUILD_TMP%\out" ^
+javac -encoding UTF-8 -cp "%BUILD_TMP%\libs\FixedReaderLib.jar;%BUILD_TMP%\libs\ReaderFinderLib.jar;%BUILD_TMP%\libs\mariadb-java-client-3.5.1.jar;%BUILD_TMP%\libs\caffeine-2.9.3.jar" -d "%BUILD_TMP%\out" ^
   "%BUILD_TMP%\src\com\apulse\middleware\util\HexUtils.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\config\ReaderConfig.java" ^
+  "%BUILD_TMP%\src\com\apulse\middleware\config\DatabaseConfig.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\reader\ReaderStatus.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\reader\TagData.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\reader\ReaderConnection.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\reader\ReaderManager.java" ^
+  "%BUILD_TMP%\src\com\apulse\middleware\db\DatabaseManager.java" ^
+  "%BUILD_TMP%\src\com\apulse\middleware\db\TagRepository.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\gui\ReaderIconComponent.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\gui\ReaderStatusPanel.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\gui\TagDataPanel.java" ^

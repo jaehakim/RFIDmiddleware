@@ -1,7 +1,12 @@
 package com.apulse.middleware.gui;
 
+import com.apulse.middleware.db.DatabaseManager;
+import com.apulse.middleware.db.TagRepository;
 import com.apulse.middleware.reader.TagData;
 import com.apulse.middleware.util.HexUtils;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -16,9 +21,8 @@ import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class TagDataPanel extends JPanel {
     private final TagTableModel tableModel;
@@ -26,14 +30,23 @@ public class TagDataPanel extends JPanel {
     private final JLabel countLabel;
     private final JCheckBox deduplicateCheck;
 
-    /** 중복제거 모드: EPC+리더기 키로 병합 */
-    private final Map<String, TagData> tagMap = new LinkedHashMap<>();
+    /** Caffeine 캐시: EPC 키로 TTL 기반 중복제거 */
+    private Cache<String, TagData> tagCache;
     /** 일반 모드: 모든 읽기를 개별 행으로 저장 */
     private final List<TagData> tagList = new ArrayList<>();
 
     public TagDataPanel() {
+        this(30, 10000);
+    }
+
+    public TagDataPanel(int cacheTtlSeconds, int cacheMaxSize) {
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createTitledBorder("태그 데이터"));
+
+        tagCache = Caffeine.newBuilder()
+            .expireAfterWrite(cacheTtlSeconds, TimeUnit.SECONDS)
+            .maximumSize(cacheMaxSize)
+            .build();
 
         tableModel = new TagTableModel();
         table = new JTable(tableModel);
@@ -78,6 +91,10 @@ public class TagDataPanel extends JPanel {
         exportButton.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
         exportButton.addActionListener(e -> exportToExcel());
 
+        JButton dbQueryButton = new JButton("DB 조회");
+        dbQueryButton.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+        dbQueryButton.addActionListener(e -> showDbQueryDialog());
+
         bottomPanel.add(countLabel);
         bottomPanel.add(Box.createHorizontalStrut(15));
         bottomPanel.add(deduplicateCheck);
@@ -85,19 +102,28 @@ public class TagDataPanel extends JPanel {
         bottomPanel.add(clearButton);
         bottomPanel.add(Box.createHorizontalStrut(10));
         bottomPanel.add(exportButton);
+        bottomPanel.add(Box.createHorizontalStrut(10));
+        bottomPanel.add(dbQueryButton);
         add(bottomPanel, BorderLayout.SOUTH);
     }
 
-    /** 태그 데이터 추가/업데이트 */
-    public void addTag(String readerName, String epc, int rssi) {
+    /**
+     * 태그 데이터 추가/업데이트
+     * @return true = 캐시 MISS (새 태그 또는 TTL 만료 후 재읽기) → DB 저장 필요
+     *         false = 캐시 HIT (중복) → DB 저장 불필요
+     */
+    public boolean addTag(String readerName, String epc, int rssi) {
         String time = HexUtils.nowShort();
 
-        // 중복제거 Map: EPC만으로 키 (리더기 무관하게 병합)
-        TagData existing = tagMap.get(epc);
+        // Caffeine 캐시로 중복제거: EPC만으로 키 (리더기 무관)
+        TagData existing = tagCache.getIfPresent(epc);
+        boolean isNew;
         if (existing != null) {
             existing.update(rssi, time, readerName);
+            isNew = false;  // 캐시 HIT → DB 저장 불필요
         } else {
-            tagMap.put(epc, new TagData(epc, readerName, rssi, time));
+            tagCache.put(epc, new TagData(epc, readerName, rssi, time));
+            isNew = true;   // 캐시 MISS → DB 저장 필요
         }
 
         // 일반 List에도 항상 추가 (체크 전환 시 사용)
@@ -105,6 +131,7 @@ public class TagDataPanel extends JPanel {
 
         tableModel.refresh();
         updateCountLabel();
+        return isNew;
     }
 
     /** 중복제거 체크박스 토글 시 테이블 새로고침 */
@@ -115,7 +142,7 @@ public class TagDataPanel extends JPanel {
 
     private void updateCountLabel() {
         int count = isDeduplicateMode()
-            ? tagMap.size()
+            ? (int) tagCache.estimatedSize()
             : tagList.size();
         countLabel.setText("Tags: " + count);
     }
@@ -127,7 +154,7 @@ public class TagDataPanel extends JPanel {
     /** 현재 모드에 따른 데이터 리스트 반환 */
     private List<TagData> getCurrentData() {
         if (isDeduplicateMode()) {
-            return new ArrayList<>(tagMap.values());
+            return new ArrayList<>(tagCache.asMap().values());
         } else {
             return new ArrayList<>(tagList);
         }
@@ -135,10 +162,69 @@ public class TagDataPanel extends JPanel {
 
     /** 태그 데이터 초기화 */
     public void clearTags() {
-        tagMap.clear();
+        tagCache.invalidateAll();
         tagList.clear();
         tableModel.refresh();
         updateCountLabel();
+    }
+
+    /** DB 조회 다이얼로그 */
+    private void showDbQueryDialog() {
+        if (!DatabaseManager.getInstance().isAvailable()) {
+            JOptionPane.showMessageDialog(this,
+                "데이터베이스에 연결되어 있지 않습니다.",
+                "DB 조회", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        JPanel panel = new JPanel(new GridLayout(2, 2, 5, 5));
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        // 기본값: 오늘 00:00:00 ~ 현재 시각
+        String today = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        JTextField fromField = new JTextField(today + " 00:00:00");
+        JTextField toField = new JTextField(sdf.format(new Date()));
+
+        panel.add(new JLabel("시작 시간:"));
+        panel.add(fromField);
+        panel.add(new JLabel("종료 시간:"));
+        panel.add(toField);
+
+        int result = JOptionPane.showConfirmDialog(this, panel,
+            "DB 조회 - 기간 선택", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION) return;
+
+        List<TagData> dbData = TagRepository.getInstance()
+            .getTagReads(fromField.getText().trim(), toField.getText().trim());
+
+        if (dbData.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                "조회된 데이터가 없습니다.",
+                "DB 조회", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        // 결과를 새 다이얼로그 테이블로 표시
+        String[] cols = {"시간", "리더기", "EPC", "RSSI"};
+        Object[][] rows = new Object[dbData.size()][4];
+        for (int i = 0; i < dbData.size(); i++) {
+            TagData t = dbData.get(i);
+            rows[i][0] = t.getLastSeen();
+            rows[i][1] = t.getReaderName();
+            rows[i][2] = t.getEpc();
+            rows[i][3] = t.getRssi();
+        }
+
+        JTable resultTable = new JTable(rows, cols);
+        resultTable.setFont(new Font("Consolas", Font.PLAIN, 12));
+        resultTable.setRowHeight(20);
+        resultTable.setAutoCreateRowSorter(true);
+
+        JScrollPane sp = new JScrollPane(resultTable);
+        sp.setPreferredSize(new Dimension(600, 400));
+
+        JOptionPane.showMessageDialog(
+            SwingUtilities.getWindowAncestor(this), sp,
+            "DB 조회 결과 (" + dbData.size() + "건)", JOptionPane.PLAIN_MESSAGE);
     }
 
     /** 태그 데이터를 엑셀(xls) 파일로 저장 */

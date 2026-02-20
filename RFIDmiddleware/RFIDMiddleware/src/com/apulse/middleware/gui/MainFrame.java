@@ -1,5 +1,6 @@
 package com.apulse.middleware.gui;
 
+import com.apulse.middleware.api.ApiServer;
 import com.apulse.middleware.config.DatabaseConfig;
 import com.apulse.middleware.config.ReaderConfig;
 import com.apulse.middleware.db.AssetRepository;
@@ -29,6 +30,7 @@ public class MainFrame extends JFrame {
     private final TagDataPanel tagDataPanel;
     private final LogPanel logPanel;
 
+    private ApiServer apiServer;
     private List<ReaderConfig> configs;
 
     public MainFrame() {
@@ -52,6 +54,14 @@ public class MainFrame extends JFrame {
         initLayout();
         loadConfig();
 
+        // REST API 서버 시작
+        try {
+            apiServer = new ApiServer(readerManager, configs, CONFIG_FILE);
+            apiServer.start();
+        } catch (Exception e) {
+            System.out.println("[MainFrame] API Server start failed: " + e.getMessage());
+        }
+
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -63,6 +73,7 @@ public class MainFrame extends JFrame {
                 );
                 if (result == JOptionPane.YES_OPTION) {
                     logPanel.appendLog("Shutting down...");
+                    if (apiServer != null) apiServer.shutdown();
                     readerManager.shutdown();
                     WarningLightController.getInstance().shutdown();
                     AssetRepository.getInstance().shutdown();
@@ -379,6 +390,36 @@ public class MainFrame extends JFrame {
             + "(경광등 ON 5초 + 빨간 행 표시 + export_alerts INSERT + 로그)<br>"
             + "&rarr; assets에 없거나 반출 허용됨 &rarr; 일반 태그 처리"
             + "</p>"
+
+            // --- 외부 API ---
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>외부 API (REST)</h2>"
+            + "<p>포트 <b>18080</b>에서 HTTP REST API를 제공합니다.</p>"
+
+            + "<h3>조회 API (GET)</h3>"
+            + "<table cellpadding='3' cellspacing='0' border='1' style='border-collapse:collapse;'>"
+            + "<tr style='background:#E8E8E8;'><th>URL</th><th>설명</th></tr>"
+            + "<tr><td><code>/api/readers</code></td><td>리더기 설정정보 전체 조회</td></tr>"
+            + "<tr><td><code>/api/assets</code></td><td>자산 테이블 조회</td></tr>"
+            + "<tr><td><code>/api/export-permissions</code></td><td>반출허용 목록 조회</td></tr>"
+            + "<tr><td><code>/api/export-alerts?from=...&amp;to=...</code></td><td>반출알림 이력 조회 (기간)</td></tr>"
+            + "</table>"
+
+            + "<h3>수정 API</h3>"
+            + "<table cellpadding='3' cellspacing='0' border='1' style='border-collapse:collapse;'>"
+            + "<tr style='background:#E8E8E8;'><th>Method</th><th>URL</th><th>설명</th></tr>"
+            + "<tr><td>PUT</td><td><code>/api/readers/{name}</code></td><td>리더기 설정 수정</td></tr>"
+            + "<tr><td>POST</td><td><code>/api/export-permissions</code></td><td>반출허용 추가</td></tr>"
+            + "<tr><td>DELETE</td><td><code>/api/export-permissions/{id}</code></td><td>반출허용 삭제</td></tr>"
+            + "</table>"
+
+            + "<h3>응답 형식 (JSON)</h3>"
+            + "<table cellpadding='3' cellspacing='0' border='0'>"
+            + "<tr><td><b>성공</b></td><td><code>{\"status\":\"ok\",\"data\":[...]}</code></td></tr>"
+            + "<tr><td><b>실패</b></td><td><code>{\"status\":\"error\",\"message\":\"...\"}</code></td></tr>"
+            + "</table>"
+
+            + "<h3>Swagger UI</h3>"
+            + "<p><code>http://localhost:18080/swagger</code> &mdash; 브라우저에서 API 테스트 가능</p>"
 
             // --- 로그 ---
             + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>로그</h2>"

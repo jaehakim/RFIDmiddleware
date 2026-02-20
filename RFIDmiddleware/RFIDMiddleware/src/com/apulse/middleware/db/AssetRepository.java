@@ -152,6 +152,41 @@ public class AssetRepository {
         }
     }
 
+    /** 반출허용 추가 */
+    public boolean insertPermission(String epc, String permitStart, String permitEnd, String reason) {
+        Connection conn = DatabaseManager.getInstance().getConnection();
+        if (conn == null) return false;
+
+        String sql = "INSERT INTO export_permissions (epc, permit_start, permit_end, reason) VALUES (?, ?, ?, ?)";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, epc);
+            pstmt.setTimestamp(2, Timestamp.valueOf(permitStart));
+            pstmt.setTimestamp(3, Timestamp.valueOf(permitEnd));
+            pstmt.setString(4, reason);
+            pstmt.executeUpdate();
+            return true;
+        } catch (Exception e) {
+            System.out.println("[AssetRepository] Insert permission failed: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** 반출허용 삭제 */
+    public boolean deletePermission(long id) {
+        Connection conn = DatabaseManager.getInstance().getConnection();
+        if (conn == null) return false;
+
+        String sql = "DELETE FROM export_permissions WHERE id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, id);
+            int affected = pstmt.executeUpdate();
+            return affected > 0;
+        } catch (Exception e) {
+            System.out.println("[AssetRepository] Delete permission failed: " + e.getMessage());
+            return false;
+        }
+    }
+
     // --- DB 조회 메서드 (GUI 표시용) ---
 
     /** 자산 목록 전체 조회 */

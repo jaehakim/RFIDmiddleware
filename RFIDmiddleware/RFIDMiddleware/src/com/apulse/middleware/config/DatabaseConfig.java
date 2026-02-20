@@ -1,5 +1,7 @@
 package com.apulse.middleware.config;
 
+import com.apulse.middleware.util.AppLogger;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.Properties;
@@ -22,7 +24,7 @@ public class DatabaseConfig {
     private void load() {
         File file = new File(CONFIG_FILE);
         if (!file.exists()) {
-            System.out.println("[DatabaseConfig] Config file not found: " + CONFIG_FILE + " (using defaults)");
+            AppLogger.info("DatabaseConfig", "Config file not found: " + CONFIG_FILE + " (using defaults)");
             return;
         }
 
@@ -36,9 +38,9 @@ public class DatabaseConfig {
             password = props.getProperty("db.password", password);
             cacheTtlSeconds = Integer.parseInt(props.getProperty("cache.ttl.seconds", String.valueOf(cacheTtlSeconds)));
             cacheMaxSize = Integer.parseInt(props.getProperty("cache.max.size", String.valueOf(cacheMaxSize)));
-            System.out.println("[DatabaseConfig] Loaded from " + CONFIG_FILE);
+            AppLogger.info("DatabaseConfig", "Loaded from " + CONFIG_FILE);
         } catch (Exception e) {
-            System.out.println("[DatabaseConfig] Error loading config: " + e.getMessage() + " (using defaults)");
+            AppLogger.error("DatabaseConfig", "Error loading config: " + e.getMessage() + " (using defaults)");
         }
     }
 

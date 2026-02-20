@@ -1,5 +1,7 @@
 package com.apulse.middleware.config;
 
+import com.apulse.middleware.util.AppLogger;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -120,7 +122,7 @@ public class ReaderConfig {
                 }
             }
         } catch (IOException e) {
-            System.err.println("설정 파일 로드 실패: " + e.getMessage());
+            AppLogger.error("ReaderConfig", "설정 파일 로드 실패: " + e.getMessage());
         }
         return configs;
     }
@@ -141,7 +143,7 @@ public class ReaderConfig {
                     cfg.dwellTime);
             }
         } catch (IOException e) {
-            System.err.println("설정 파일 저장 실패: " + e.getMessage());
+            AppLogger.error("ReaderConfig", "설정 파일 저장 실패: " + e.getMessage());
         }
     }
 }

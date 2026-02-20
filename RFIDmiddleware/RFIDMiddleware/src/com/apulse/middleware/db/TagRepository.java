@@ -1,6 +1,7 @@
 package com.apulse.middleware.db;
 
 import com.apulse.middleware.reader.TagData;
+import com.apulse.middleware.util.AppLogger;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -35,7 +36,7 @@ public class TagRepository {
         writerThread = new Thread(this::writerLoop, "TagDB-Writer");
         writerThread.setDaemon(true);
         writerThread.start();
-        System.out.println("[TagRepository] Writer thread started");
+        AppLogger.info("TagRepository", "Writer thread started");
     }
 
     public void insertTagRead(String epc, String readerName, int rssi, String readTime) {
@@ -64,7 +65,7 @@ public class TagRepository {
         if (!batch.isEmpty()) {
             flushBatch(batch);
         }
-        System.out.println("[TagRepository] Writer thread stopped");
+        AppLogger.info("TagRepository", "Writer thread stopped");
     }
 
     private void flushBatch(List<TagRecord> batch) {
@@ -88,7 +89,7 @@ public class TagRepository {
             }
             pstmt.executeBatch();
         } catch (Exception e) {
-            System.out.println("[TagRepository] Batch insert failed: " + e.getMessage());
+            AppLogger.error("TagRepository", "Batch insert failed: " + e.getMessage());
         }
     }
 
@@ -113,7 +114,7 @@ public class TagRepository {
                 }
             }
         } catch (Exception e) {
-            System.out.println("[TagRepository] Query failed: " + e.getMessage());
+            AppLogger.error("TagRepository", "Query failed: " + e.getMessage());
         }
         return results;
     }
@@ -126,7 +127,7 @@ public class TagRepository {
              ResultSet rs = pstmt.executeQuery()) {
             if (rs.next()) return rs.getInt(1);
         } catch (Exception e) {
-            System.out.println("[TagRepository] Count query failed: " + e.getMessage());
+            AppLogger.error("TagRepository", "Count query failed: " + e.getMessage());
         }
         return 0;
     }
@@ -141,7 +142,7 @@ public class TagRepository {
                 Thread.currentThread().interrupt();
             }
         }
-        System.out.println("[TagRepository] Shutdown complete");
+        AppLogger.info("TagRepository", "Shutdown complete");
     }
 
     private static class TagRecord {

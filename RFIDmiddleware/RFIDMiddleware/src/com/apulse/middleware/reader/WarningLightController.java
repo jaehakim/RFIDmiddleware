@@ -1,5 +1,7 @@
 package com.apulse.middleware.reader;
 
+import com.apulse.middleware.util.AppLogger;
+
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -59,6 +61,6 @@ public class WarningLightController {
         }
         activeTimers.clear();
         scheduler.shutdownNow();
-        System.out.println("[WarningLightController] Shutdown complete");
+        AppLogger.info("WarningLightController", "Shutdown complete");
     }
 }

@@ -5,6 +5,8 @@
 ### 1단계: 애플리케이션 시작 (Main.java)
 ```
 Main.main()
+  → LogConfig 로드  -- log.cfg 파일 읽기
+  → AppLogger.init(logConfig)  -- 로거 초기화 (콘솔+파일 핸들러 설정)
   → UIManager.setLookAndFeel()  -- 시스템 Look & Feel 설정
   → SwingUtilities.invokeLater()
       → new MainFrame()  -- 메인 윈도우 생성 (2단계로)
@@ -130,7 +132,8 @@ MainFrame()
   ├── WarningLightController.shutdown()  -- 경광등 타이머 취소
   ├── AssetRepository.shutdown()  -- 갱신 스케줄러 중지
   ├── TagRepository.shutdown()  -- 배치 Writer 스레드 중지 (잔여 flush)
-  └── DatabaseManager.shutdown()  -- DB 연결 종료
+  ├── DatabaseManager.shutdown()  -- DB 연결 종료
+  └── AppLogger.shutdown()  -- 로그 핸들러 종료 (파일 flush)
 ```
 
 ---
@@ -153,7 +156,8 @@ MainFrame()
 RFIDmiddleware/RFIDMiddleware/
 ├── config/
 │   ├── readers.cfg          -- 리더기 설정 (이름,IP,포트,부저,경광등,안테나출력,드웰타임)
-│   └── database.cfg         -- DB 설정 (MariaDB 10.0.0.148:13306, tagflow)
+│   ├── database.cfg         -- DB 설정 (MariaDB 10.0.0.148:13306, tagflow)
+│   └── log.cfg              -- 로그 설정 (레벨,파일경로,로테이션,콘솔)
 ├── libs/
 │   ├── FixedReaderLib.jar   -- RFID 리더기 SDK
 │   ├── ReaderFinderLib.jar  -- 리더기 검색 SDK
@@ -165,7 +169,8 @@ RFIDmiddleware/RFIDMiddleware/
 │   │   └── ApiServer.java       -- REST API 서버 (포트 18080, HttpServer)
 │   ├── config/
 │   │   ├── ReaderConfig.java    -- 리더기 설정 모델
-│   │   └── DatabaseConfig.java  -- DB 설정 모델
+│   │   ├── DatabaseConfig.java  -- DB 설정 모델
+│   │   └── LogConfig.java       -- 로그 설정 모델
 │   ├── db/
 │   │   ├── DatabaseManager.java -- DB 연결 관리 (싱글톤)
 │   │   ├── TagRepository.java   -- 태그 읽기 배치 저장 (싱글톤)
@@ -184,7 +189,8 @@ RFIDmiddleware/RFIDMiddleware/
 │   │   ├── LogPanel.java         -- 시스템 로그
 │   │   └── ConfigDialog.java     -- 설정 다이얼로그
 │   └── util/
-│       └── HexUtils.java         -- HEX 변환, 타임스탬프
+│       ├── HexUtils.java         -- HEX 변환, 타임스탬프
+│       └── AppLogger.java        -- 통합 로거 (파일+콘솔, 로테이션)
 ├── build.bat                -- 빌드 스크립트 (Fat JAR 생성)
 ├── run.bat                  -- 실행 스크립트 (JAR 실행)
 └── RFIDMiddleware.jar       -- 빌드 산출물 (Fat JAR, ~2.4MB)
@@ -216,9 +222,11 @@ run.bat
 ```
 배포폴더/
 ├── RFIDMiddleware.jar    -- 단일 실행 파일
-└── config/
-    ├── readers.cfg       -- 리더기 설정
-    └── database.cfg      -- DB 설정
+├── config/
+│   ├── readers.cfg       -- 리더기 설정
+│   ├── database.cfg      -- DB 설정
+│   └── log.cfg           -- 로그 설정
+└── logs/                 -- 로그 파일 (자동 생성)
 ```
 - 실행: `java -Dfile.encoding=UTF-8 -jar RFIDMiddleware.jar`
 - JDK/JRE 8 이상 필요
@@ -471,3 +479,64 @@ curl -X POST http://localhost:18080/api/control/stop-inventory
 | `api/ApiServer.java` | REST API 서버 (HttpServer, 핸들러, JSON 처리) |
 | `db/AssetRepository.java` | `insertPermission()`, `deletePermission()` 메서드 |
 | `gui/MainFrame.java` | ApiServer 생성/시작/종료 관리 |
+
+---
+
+## 로그 관리
+
+### 개요
+- `java.util.logging` (JDK 내장) 기반 통합 로거
+- 콘솔 + 파일 동시 출력, 파일 로테이션 지원
+- 모든 `System.out.println` → `AppLogger` 정적 메서드로 통일
+
+### 설정 파일 (config/log.cfg)
+```properties
+# 로그 레벨 (DEBUG, INFO, WARN, ERROR)
+log.level=INFO
+
+# 파일 로그
+log.file.enabled=true
+log.file.path=logs/middleware.log
+log.file.max.size=10
+log.file.max.count=5
+
+# 콘솔 로그
+log.console.enabled=true
+```
+
+| 설정 | 기본값 | 설명 |
+|------|--------|------|
+| `log.level` | INFO | 로그 출력 최소 레벨 (DEBUG < INFO < WARN < ERROR) |
+| `log.file.enabled` | true | 파일 로그 활성화 |
+| `log.file.path` | logs/middleware.log | 로그 파일 경로 |
+| `log.file.max.size` | 10 | 단일 로그 파일 최대 크기 (MB) |
+| `log.file.max.count` | 5 | 로테이션 파일 최대 개수 |
+| `log.console.enabled` | true | 콘솔 로그 활성화 |
+
+### 로그 포맷
+```
+[2026-02-20 14:30:00] [INFO] [DatabaseManager] Connected to 10.0.0.148:13306
+[2026-02-20 14:30:01] [ERROR] [TagRepository] Batch insert failed: Connection reset
+[2026-02-20 14:30:02] [DEBUG] [Reader-01] EPC=042010042025091000000600, RSSI=-45, Ant=1
+```
+
+### 사용법
+```java
+AppLogger.debug("Component", "상세 디버그 메시지");
+AppLogger.info("Component", "일반 정보 메시지");
+AppLogger.warn("Component", "경고 메시지");
+AppLogger.error("Component", "에러 메시지");
+AppLogger.error("Component", "에러 메시지", exception);  // 스택트레이스 포함
+```
+
+### 파일 로테이션
+- `logs/middleware.log` → `logs/middleware.log.0` → `logs/middleware.log.1` ...
+- `max.size` 초과 시 자동 로테이션, `max.count` 초과 시 오래된 파일 삭제
+
+### 관련 파일
+| 파일 | 역할 |
+|------|------|
+| `config/log.cfg` | 로그 설정 파일 |
+| `config/LogConfig.java` | 로그 설정 로더 (Properties 기반) |
+| `util/AppLogger.java` | 통합 로거 (FileHandler + ConsoleHandler) |
+| `Main.java` | AppLogger.init() 호출 (앱 시작 시 최초 1회) |

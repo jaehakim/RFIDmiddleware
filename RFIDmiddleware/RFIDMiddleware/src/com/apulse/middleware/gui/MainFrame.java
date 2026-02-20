@@ -10,6 +10,7 @@ import com.apulse.middleware.reader.ReaderConnection;
 import com.apulse.middleware.reader.ReaderManager;
 import com.apulse.middleware.reader.ReaderStatus;
 import com.apulse.middleware.reader.WarningLightController;
+import com.apulse.middleware.util.AppLogger;
 import com.apulse.middleware.util.HexUtils;
 
 import javax.swing.*;
@@ -62,7 +63,7 @@ public class MainFrame extends JFrame {
             apiServer = new ApiServer(readerManager, configs, CONFIG_FILE);
             apiServer.start();
         } catch (Exception e) {
-            System.out.println("[MainFrame] API Server start failed: " + e.getMessage());
+            AppLogger.error("MainFrame", "API Server start failed: " + e.getMessage());
         }
 
         addWindowListener(new WindowAdapter() {
@@ -82,6 +83,7 @@ public class MainFrame extends JFrame {
                     AssetRepository.getInstance().shutdown();
                     TagRepository.getInstance().shutdown();
                     DatabaseManager.getInstance().shutdown();
+                    AppLogger.shutdown();
                     dispose();
                     System.exit(0);
                 }

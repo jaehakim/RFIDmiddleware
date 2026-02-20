@@ -1,6 +1,7 @@
 package com.apulse.middleware.db;
 
 import com.apulse.middleware.config.DatabaseConfig;
+import com.apulse.middleware.util.AppLogger;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -27,11 +28,11 @@ public class DatabaseManager {
             if (connection != null) {
                 createTableIfNotExists();
                 initialized = true;
-                System.out.println("[DatabaseManager] Initialized successfully");
+                AppLogger.info("DatabaseManager", "Initialized successfully");
             }
         } catch (Exception e) {
-            System.out.println("[DatabaseManager] Init failed: " + e.getMessage());
-            System.out.println("[DatabaseManager] Program will continue without DB");
+            AppLogger.error("DatabaseManager", "Init failed: " + e.getMessage());
+            AppLogger.warn("DatabaseManager", "Program will continue without DB");
         }
     }
 
@@ -45,10 +46,10 @@ public class DatabaseManager {
             try (Statement s = connection.createStatement()) {
                 s.execute("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
             }
-            System.out.println("[DatabaseManager] Connected to " + config.getHost() + ":" + config.getPort());
+            AppLogger.info("DatabaseManager", "Connected to " + config.getHost() + ":" + config.getPort());
         } catch (Exception e) {
             connection = null;
-            System.out.println("[DatabaseManager] Connection failed: " + e.getMessage());
+            AppLogger.error("DatabaseManager", "Connection failed: " + e.getMessage());
         }
     }
 
@@ -105,10 +106,10 @@ public class DatabaseManager {
         try (Statement stmt = connection.createStatement()) {
             for (int i = 0; i < sqls.length; i++) {
                 stmt.execute(sqls[i]);
-                System.out.println("[DatabaseManager] Table '" + tableNames[i] + "' ready");
+                AppLogger.info("DatabaseManager", "Table '" + tableNames[i] + "' ready");
             }
         } catch (Exception e) {
-            System.out.println("[DatabaseManager] Create table failed: " + e.getMessage());
+            AppLogger.error("DatabaseManager", "Create table failed: " + e.getMessage());
         }
     }
 
@@ -116,11 +117,11 @@ public class DatabaseManager {
         if (!initialized) return null;
         try {
             if (connection == null || connection.isClosed() || !connection.isValid(2)) {
-                System.out.println("[DatabaseManager] Reconnecting...");
+                AppLogger.info("DatabaseManager", "Reconnecting...");
                 connect();
             }
         } catch (Exception e) {
-            System.out.println("[DatabaseManager] Reconnect check failed: " + e.getMessage());
+            AppLogger.error("DatabaseManager", "Reconnect check failed: " + e.getMessage());
             connect();
         }
         return connection;
@@ -134,10 +135,10 @@ public class DatabaseManager {
         try {
             if (connection != null && !connection.isClosed()) {
                 connection.close();
-                System.out.println("[DatabaseManager] Connection closed");
+                AppLogger.info("DatabaseManager", "Connection closed");
             }
         } catch (Exception e) {
-            System.out.println("[DatabaseManager] Shutdown error: " + e.getMessage());
+            AppLogger.error("DatabaseManager", "Shutdown error: " + e.getMessage());
         }
         initialized = false;
     }

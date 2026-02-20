@@ -3,6 +3,7 @@ package com.apulse.middleware.reader;
 import com.apulse.fixedreaderlib.FixedReader;
 import com.apulse.fixedreaderlib.FixedReaderApiError;
 import com.apulse.middleware.config.ReaderConfig;
+import com.apulse.middleware.util.AppLogger;
 import com.apulse.middleware.util.HexUtils;
 
 import java.util.List;
@@ -64,7 +65,7 @@ public class ReaderConnection {
     }
 
     private void log(String message) {
-        System.out.println("[" + config.getName() + "] " + message);
+        AppLogger.info(config.getName(), message);
         for (ReaderConnectionListener l : listeners) {
             l.onLog(this, message);
         }
@@ -502,8 +503,8 @@ public class ReaderConnection {
      * PC bits[15:11] = EPC 워드 수
      */
     private void handleReport(int readerId, int cmdCode, byte[] reportData, int reportDataLen) {
-        System.out.println(String.format("[DEBUG-%s] cmdCode=0x%02X, len=%d, status=%s, raw=%s",
-            config.getName(), cmdCode, reportDataLen, status,
+        AppLogger.debug(config.getName(), String.format("cmdCode=0x%02X, len=%d, status=%s, raw=%s",
+            cmdCode, reportDataLen, status,
             HexUtils.bytesToHex(reportData, 0, Math.min(reportDataLen, 50))));
 
         // 인벤토리 중이 아니면 태그 데이터로 처리하지 않음
@@ -546,8 +547,8 @@ public class ReaderConnection {
                 rssi = reportData[offset];  // signed byte
             }
 
-            System.out.println(String.format("[DEBUG-%s] EPC=%s, RSSI=%d, Ant=%d, PC=0x%04X",
-                config.getName(), epc, rssi, antenna, pc));
+            AppLogger.debug(config.getName(), String.format("EPC=%s, RSSI=%d, Ant=%d, PC=0x%04X",
+                epc, rssi, antenna, pc));
 
             for (TagDataListener l : tagListeners) {
                 l.onTagRead(this, epc, rssi);

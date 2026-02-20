@@ -26,6 +26,8 @@ echo [3/5] Compiling...
 if not exist "%BUILD_TMP%\out" mkdir "%BUILD_TMP%\out"
 javac -encoding UTF-8 -cp "%BUILD_TMP%\libs\FixedReaderLib.jar;%BUILD_TMP%\libs\ReaderFinderLib.jar;%BUILD_TMP%\libs\mariadb-java-client-3.5.1.jar;%BUILD_TMP%\libs\caffeine-2.9.3.jar" -d "%BUILD_TMP%\out" ^
   "%BUILD_TMP%\src\com\apulse\middleware\util\HexUtils.java" ^
+  "%BUILD_TMP%\src\com\apulse\middleware\util\AppLogger.java" ^
+  "%BUILD_TMP%\src\com\apulse\middleware\config\LogConfig.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\config\ReaderConfig.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\config\DatabaseConfig.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\reader\ReaderStatus.java" ^

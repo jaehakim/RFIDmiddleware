@@ -5,6 +5,7 @@ import com.apulse.middleware.db.AssetRepository;
 import com.apulse.middleware.db.DatabaseManager;
 import com.apulse.middleware.reader.ReaderConnection;
 import com.apulse.middleware.reader.ReaderManager;
+import com.apulse.middleware.util.AppLogger;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -45,12 +46,12 @@ public class ApiServer {
 
     public void start() {
         server.start();
-        System.out.println("[ApiServer] Started on port " + PORT);
+        AppLogger.info("ApiServer", "Started on port " + PORT);
     }
 
     public void shutdown() {
         server.stop(1);
-        System.out.println("[ApiServer] Shutdown complete");
+        AppLogger.info("ApiServer", "Shutdown complete");
     }
 
     // --- Utility methods ---

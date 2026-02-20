@@ -1,5 +1,6 @@
 package com.apulse.middleware.db;
 
+import com.apulse.middleware.util.AppLogger;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
@@ -66,11 +67,10 @@ public class AssetRepository {
                 refreshCache();
             } catch (Throwable t) {
                 // scheduleAtFixedRate는 예외 발생 시 이후 실행을 중단하므로 반드시 catch
-                System.out.println("[AssetRepository] Cache refresh FATAL: " + t.getMessage());
-                t.printStackTrace();
+                AppLogger.error("AssetRepository", "Cache refresh FATAL: " + t.getMessage(), t);
             }
         }, refreshIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
-        System.out.println("[AssetRepository] Started (refresh every " + refreshIntervalSeconds + "s)");
+        AppLogger.info("AssetRepository", "Started (refresh every " + refreshIntervalSeconds + "s)");
     }
 
     public void refreshCache() {
@@ -109,10 +109,10 @@ public class AssetRepository {
             permittedEpcs.clear();
             permittedEpcs.addAll(newPermitted);
 
-            System.out.println("[AssetRepository] Cache refreshed: assets=" + assetMap.size()
+            AppLogger.debug("AssetRepository", "Cache refreshed: assets=" + assetMap.size()
                 + ", permitted=" + permittedEpcs.size() + " " + permittedEpcs);
         } catch (Exception e) {
-            System.out.println("[AssetRepository] Cache refresh failed: " + e.getMessage());
+            AppLogger.error("AssetRepository", "Cache refresh failed: " + e.getMessage());
         }
     }
 
@@ -158,7 +158,7 @@ public class AssetRepository {
             pstmt.setTimestamp(5, Timestamp.valueOf(alertTime));
             pstmt.executeUpdate();
         } catch (Exception e) {
-            System.out.println("[AssetRepository] Insert alert failed: " + e.getMessage());
+            AppLogger.error("AssetRepository", "Insert alert failed: " + e.getMessage());
         }
     }
 
@@ -176,7 +176,7 @@ public class AssetRepository {
             pstmt.executeUpdate();
             return true;
         } catch (Exception e) {
-            System.out.println("[AssetRepository] Insert permission failed: " + e.getMessage());
+            AppLogger.error("AssetRepository", "Insert permission failed: " + e.getMessage());
             return false;
         }
     }
@@ -192,7 +192,7 @@ public class AssetRepository {
             int affected = pstmt.executeUpdate();
             return affected > 0;
         } catch (Exception e) {
-            System.out.println("[AssetRepository] Delete permission failed: " + e.getMessage());
+            AppLogger.error("AssetRepository", "Delete permission failed: " + e.getMessage());
             return false;
         }
     }
@@ -220,7 +220,7 @@ public class AssetRepository {
                 });
             }
         } catch (Exception e) {
-            System.out.println("[AssetRepository] Query assets failed: " + e.getMessage());
+            AppLogger.error("AssetRepository", "Query assets failed: " + e.getMessage());
         }
         return results;
     }
@@ -252,7 +252,7 @@ public class AssetRepository {
                 });
             }
         } catch (Exception e) {
-            System.out.println("[AssetRepository] Query permissions failed: " + e.getMessage());
+            AppLogger.error("AssetRepository", "Query permissions failed: " + e.getMessage());
         }
         return results;
     }
@@ -285,7 +285,7 @@ public class AssetRepository {
                 }
             }
         } catch (Exception e) {
-            System.out.println("[AssetRepository] Query alerts failed: " + e.getMessage());
+            AppLogger.error("AssetRepository", "Query alerts failed: " + e.getMessage());
         }
         return results;
     }
@@ -321,7 +321,7 @@ public class AssetRepository {
         if (scheduler != null) {
             scheduler.shutdownNow();
         }
-        System.out.println("[AssetRepository] Shutdown complete");
+        AppLogger.info("AssetRepository", "Shutdown complete");
     }
 
     /** 자산 정보 모델 */

@@ -38,6 +38,7 @@ public class ApiServer {
         server.createContext("/api/assets", new AssetsHandler());
         server.createContext("/api/export-permissions", new ExportPermissionsHandler());
         server.createContext("/api/export-alerts", new ExportAlertsHandler());
+        server.createContext("/api/control", new ControlHandler());
         server.createContext("/swagger", new SwaggerUiHandler());
         server.createContext("/api/openapi.json", new OpenApiHandler());
     }
@@ -454,6 +455,53 @@ public class ApiServer {
         }
     }
 
+    /** POST /api/control/{action} - connect-all, disconnect-all, start-inventory, stop-inventory */
+    private class ControlHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            try {
+                String method = exchange.getRequestMethod();
+
+                if ("OPTIONS".equals(method)) {
+                    sendJson(exchange, 204, "");
+                    return;
+                }
+                if (!"POST".equals(method)) {
+                    sendError(exchange, 405, "Method not allowed (use POST)");
+                    return;
+                }
+
+                String path = exchange.getRequestURI().getPath();
+                String action = path.length() > "/api/control/".length()
+                    ? path.substring("/api/control/".length()) : "";
+
+                switch (action) {
+                    case "connect-all":
+                        readerManager.connectAll();
+                        sendOk(exchange, "{\"message\":\"Connect all requested\"}");
+                        break;
+                    case "disconnect-all":
+                        readerManager.disconnectAll();
+                        sendOk(exchange, "{\"message\":\"Disconnect all requested\"}");
+                        break;
+                    case "start-inventory":
+                        readerManager.startInventoryAll();
+                        sendOk(exchange, "{\"message\":\"Start inventory requested\"}");
+                        break;
+                    case "stop-inventory":
+                        readerManager.stopInventoryAll();
+                        sendOk(exchange, "{\"message\":\"Stop inventory requested\"}");
+                        break;
+                    default:
+                        sendError(exchange, 404, "Unknown action: " + action
+                            + " (available: connect-all, disconnect-all, start-inventory, stop-inventory)");
+                }
+            } catch (Exception e) {
+                sendError(exchange, 500, e.getMessage());
+            }
+        }
+    }
+
     /** GET /swagger - Swagger UI (CDN-based) */
     private class SwaggerUiHandler implements HttpHandler {
         @Override
@@ -579,6 +627,50 @@ public class ApiServer {
                 + "        \"responses\": {\n"
                 + "          \"200\": {\"description\": \"\\uc131\\uacf5\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}},\n"
                 + "          \"400\": {\"description\": \"\\uc798\\ubabb\\ub41c ID\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/ErrorResponse\"}}}}\n"
+                + "        }\n"
+                + "      }\n"
+                + "    },\n"
+
+                // POST /api/control/connect-all
+                + "    \"/api/control/connect-all\": {\n"
+                + "      \"post\": {\n"
+                + "        \"tags\": [\"Control\"],\n"
+                + "        \"summary\": \"\\uc804\\uccb4 \\ub9ac\\ub354\\uae30 \\uc5f0\\uacb0\",\n"
+                + "        \"responses\": {\n"
+                + "          \"200\": {\"description\": \"\\uc131\\uacf5\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}}\n"
+                + "        }\n"
+                + "      }\n"
+                + "    },\n"
+
+                // POST /api/control/disconnect-all
+                + "    \"/api/control/disconnect-all\": {\n"
+                + "      \"post\": {\n"
+                + "        \"tags\": [\"Control\"],\n"
+                + "        \"summary\": \"\\uc804\\uccb4 \\ub9ac\\ub354\\uae30 \\uc5f0\\uacb0 \\ud574\\uc81c\",\n"
+                + "        \"responses\": {\n"
+                + "          \"200\": {\"description\": \"\\uc131\\uacf5\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}}\n"
+                + "        }\n"
+                + "      }\n"
+                + "    },\n"
+
+                // POST /api/control/start-inventory
+                + "    \"/api/control/start-inventory\": {\n"
+                + "      \"post\": {\n"
+                + "        \"tags\": [\"Control\"],\n"
+                + "        \"summary\": \"\\uc804\\uccb4 \\uc778\\ubca4\\ud1a0\\ub9ac \\uc2dc\\uc791\",\n"
+                + "        \"responses\": {\n"
+                + "          \"200\": {\"description\": \"\\uc131\\uacf5\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}}\n"
+                + "        }\n"
+                + "      }\n"
+                + "    },\n"
+
+                // POST /api/control/stop-inventory
+                + "    \"/api/control/stop-inventory\": {\n"
+                + "      \"post\": {\n"
+                + "        \"tags\": [\"Control\"],\n"
+                + "        \"summary\": \"\\uc804\\uccb4 \\uc778\\ubca4\\ud1a0\\ub9ac \\uc911\\uc9c0\",\n"
+                + "        \"responses\": {\n"
+                + "          \"200\": {\"description\": \"\\uc131\\uacf5\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}}\n"
                 + "        }\n"
                 + "      }\n"
                 + "    },\n"

@@ -22,7 +22,7 @@ public class LogPanel extends JPanel {
 
         logArea = new JTextArea();
         logArea.setEditable(false);
-        logArea.setFont(new Font("Consolas", Font.PLAIN, 11));
+        logArea.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
         logArea.setBackground(new Color(30, 30, 30));
         logArea.setForeground(new Color(200, 200, 200));
         logArea.setCaretColor(Color.WHITE);

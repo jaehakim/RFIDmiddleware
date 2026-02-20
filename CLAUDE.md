@@ -262,6 +262,36 @@ DB 원본:  0420100420250910000006   (22자 = 11바이트, 5.5워드)
 
 ---
 
+## EPC Mask 필터
+
+태그 수신 시 EPC 접두사(mask)로 필터링하여 특정 태그만 처리하는 기능.
+
+### 동작
+- **글로벌 설정**: 모든 리더기에 공통 적용 (리더기별이 아닌 전체 설정)
+- **접두사 매칭**: mask 값이 있으면, EPC가 해당 값(대소문자 무시)으로 시작하는 태그만 처리
+- **빈 값**: mask가 비어있거나 없으면 모든 태그 처리 (기존 동작)
+- **적용 시점**: tagListener 진입 시 가장 먼저 체크 (mask 불일치 → 즉시 return)
+- **재시작 불필요**: 설정 다이얼로그에서 저장 즉시 적용 (정적 필드를 매 태그마다 참조)
+
+### readers.cfg 저장 형식
+```
+# 리더기 설정 파일
+MASK=0420
+Reader-01,192.168.0.196,20058,1,0,30,30,30,30,500
+...
+```
+- 기존 CSV 리더기 파서는 `MASK=` 줄을 자동 스킵 (CSV 3필드 미만)
+- 하위 호환 유지
+
+### 관련 코드
+| 파일 | 역할 |
+|------|------|
+| `config/ReaderConfig.java` | `epcMask` 정적 필드, `loadFromFile()`에서 `MASK=` 파싱, `saveToFile()`에서 출력 |
+| `gui/ConfigDialog.java` | EPC Mask 입력 필드 UI (설정 다이얼로그 상단) |
+| `gui/MainFrame.java` | tagListener 맨 앞에서 mask 필터링 수행 |
+
+---
+
 ## GUI 기능
 
 ### 툴바 버튼
@@ -315,6 +345,14 @@ DB 원본:  0420100420250910000006   (22자 = 11바이트, 5.5워드)
 | GET | `/api/export-permissions` | 반출허용 목록 조회 (EPC, 자산번호, 자산명, 허용기간, 사유, 상태) |
 | GET | `/api/export-alerts?from=yyyy-MM-dd HH:mm:ss&to=yyyy-MM-dd HH:mm:ss` | 반출알림 이력 조회 (기간 필수) |
 
+#### 제어 API (POST)
+| Method | URL | 설명 |
+|--------|-----|------|
+| POST | `/api/control/connect-all` | 전체 리더기 연결 |
+| POST | `/api/control/disconnect-all` | 전체 리더기 연결 해제 |
+| POST | `/api/control/start-inventory` | 전체 인벤토리 시작 |
+| POST | `/api/control/stop-inventory` | 전체 인벤토리 중지 |
+
 #### 수정 API (PUT/POST/DELETE)
 | Method | URL | 설명 |
 |--------|-----|------|
@@ -359,6 +397,18 @@ curl -X POST http://localhost:18080/api/export-permissions \
 
 # 반출허용 삭제
 curl -X DELETE http://localhost:18080/api/export-permissions/1
+
+# 전체 리더기 연결
+curl -X POST http://localhost:18080/api/control/connect-all
+
+# 전체 리더기 연결 해제
+curl -X POST http://localhost:18080/api/control/disconnect-all
+
+# 전체 인벤토리 시작
+curl -X POST http://localhost:18080/api/control/start-inventory
+
+# 전체 인벤토리 중지
+curl -X POST http://localhost:18080/api/control/stop-inventory
 ```
 
 ### 데이터 흐름
@@ -370,6 +420,11 @@ curl -X DELETE http://localhost:18080/api/export-permissions/1
   ├── GET /api/assets ───────────→ AssetRepository.queryAssets() → JSON 응답
   ├── GET /api/export-permissions → AssetRepository.queryExportPermissions() → JSON 응답
   ├── GET /api/export-alerts ────→ AssetRepository.queryExportAlerts(from, to) → JSON 응답
+  │
+  ├── POST /api/control/connect-all ──→ ReaderManager.connectAll() → JSON 응답
+  ├── POST /api/control/disconnect-all → ReaderManager.disconnectAll() → JSON 응답
+  ├── POST /api/control/start-inventory → ReaderManager.startInventoryAll() → JSON 응답
+  ├── POST /api/control/stop-inventory → ReaderManager.stopInventoryAll() → JSON 응답
   │
   ├── PUT /api/readers/{name} ──→ ReaderConfig 수정 → saveToFile() → JSON 응답
   ├── POST /api/export-permissions → DB INSERT → refreshCache() → JSON 응답

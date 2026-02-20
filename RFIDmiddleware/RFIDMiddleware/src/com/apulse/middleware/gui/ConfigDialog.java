@@ -13,6 +13,7 @@ public class ConfigDialog extends JDialog {
     private final ConfigTableModel tableModel;
     private final JTable table;
     private final JCheckBox applyAllCheck;
+    private final JTextField maskField;
     private boolean confirmed = false;
 
     public ConfigDialog(Frame owner, List<ReaderConfig> configs) {
@@ -57,8 +58,26 @@ public class ConfigDialog extends JDialog {
             }
         }
 
+        // EPC Mask 입력 패널
+        JPanel maskPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        maskPanel.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+        JLabel maskLabel = new JLabel("EPC Mask:");
+        maskLabel.setFont(new Font("맑은 고딕", Font.BOLD, 12));
+        maskField = new JTextField(ReaderConfig.getEpcMask(), 20);
+        maskField.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
+        JLabel maskHint = new JLabel("(EPC 접두사 필터, 빈 값이면 전체 수신)");
+        maskHint.setFont(new Font("맑은 고딕", Font.PLAIN, 10));
+        maskHint.setForeground(Color.GRAY);
+        maskPanel.add(maskLabel);
+        maskPanel.add(maskField);
+        maskPanel.add(maskHint);
+
+        // 상단: mask + 테이블
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.add(maskPanel, BorderLayout.NORTH);
         JScrollPane scrollPane = new JScrollPane(table);
-        add(scrollPane, BorderLayout.CENTER);
+        topPanel.add(scrollPane, BorderLayout.CENTER);
+        add(topPanel, BorderLayout.CENTER);
 
         // 우측 버튼
         JPanel sidePanel = new JPanel();
@@ -119,6 +138,7 @@ public class ConfigDialog extends JDialog {
             if (table.isEditing()) {
                 table.getCellEditor().stopCellEditing();
             }
+            ReaderConfig.setEpcMask(maskField.getText().trim());
             confirmed = true;
             setVisible(false);
         });

@@ -6,6 +6,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ReaderConfig {
+    /** 글로벌 EPC Mask (접두사 필터). 비어있으면 모든 태그 처리 */
+    private static String epcMask = "";
+
+    public static String getEpcMask() { return epcMask; }
+    public static void setEpcMask(String mask) { epcMask = (mask != null) ? mask.trim() : ""; }
+
     private String name;
     private String ip;
     private int port;
@@ -62,6 +68,10 @@ public class ReaderConfig {
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
                 if (line.isEmpty() || line.startsWith("#")) continue;
+                if (line.startsWith("MASK=")) {
+                    epcMask = line.substring(5).trim();
+                    continue;
+                }
                 String[] parts = line.split(",");
                 if (parts.length >= 3) {
                     String name = parts[0].trim();
@@ -120,6 +130,7 @@ public class ReaderConfig {
         try (PrintWriter writer = new PrintWriter(
                 new OutputStreamWriter(new FileOutputStream(filePath), StandardCharsets.UTF_8))) {
             writer.println("# 리더기 설정 파일 (이름,IP,Port,부저,경광등,출력1,출력2,출력3,출력4,드웰시간)");
+            writer.println("MASK=" + epcMask);
             for (ReaderConfig cfg : configs) {
                 writer.printf("%s,%s,%d,%s,%s,%d,%d,%d,%d,%d%n",
                     cfg.getName(), cfg.getIp(), cfg.getPort(),

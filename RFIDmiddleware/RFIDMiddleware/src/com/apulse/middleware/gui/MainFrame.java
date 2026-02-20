@@ -209,6 +209,16 @@ public class MainFrame extends JFrame {
         };
 
         ReaderConnection.TagDataListener tagListener = (connection, epc, rssi) -> {
+            // EPC Mask 필터링
+            String mask = ReaderConfig.getEpcMask();
+            if (!mask.isEmpty() && !epc.toUpperCase().startsWith(mask.toUpperCase())) {
+                SwingUtilities.invokeLater(() ->
+                    logPanel.appendLog(connection.getConfig().getName(),
+                        "MASK filtered: EPC=" + epc + " (mask=" + mask + ")")
+                );
+                return;
+            }
+
             // 자산정보 및 상태 판단 (백그라운드 스레드에서 실행)
             AssetRepository.AssetInfo assetInfo = AssetRepository.getInstance().getAssetInfo(epc);
             AssetRepository.AssetInfo unauthorizedAsset = AssetRepository.getInstance().checkUnauthorizedExport(epc);
@@ -404,6 +414,15 @@ public class MainFrame extends JFrame {
             + "<tr><td><code>/api/export-alerts?from=...&amp;to=...</code></td><td>반출알림 이력 조회 (기간)</td></tr>"
             + "</table>"
 
+            + "<h3>제어 API (POST)</h3>"
+            + "<table cellpadding='3' cellspacing='0' border='1' style='border-collapse:collapse;'>"
+            + "<tr style='background:#E8E8E8;'><th>URL</th><th>설명</th></tr>"
+            + "<tr><td><code>/api/control/connect-all</code></td><td>전체 리더기 연결</td></tr>"
+            + "<tr><td><code>/api/control/disconnect-all</code></td><td>전체 리더기 연결 해제</td></tr>"
+            + "<tr><td><code>/api/control/start-inventory</code></td><td>전체 인벤토리 시작</td></tr>"
+            + "<tr><td><code>/api/control/stop-inventory</code></td><td>전체 인벤토리 중지</td></tr>"
+            + "</table>"
+
             + "<h3>수정 API</h3>"
             + "<table cellpadding='3' cellspacing='0' border='1' style='border-collapse:collapse;'>"
             + "<tr style='background:#E8E8E8;'><th>Method</th><th>URL</th><th>설명</th></tr>"
@@ -420,6 +439,18 @@ public class MainFrame extends JFrame {
 
             + "<h3>Swagger UI</h3>"
             + "<p><code>http://localhost:18080/swagger</code> &mdash; 브라우저에서 API 테스트 가능</p>"
+
+            // --- EPC Mask 필터 ---
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>EPC Mask 필터</h2>"
+            + "<table cellpadding='4' cellspacing='0' border='0'>"
+            + "<tr><td><b>설정 위치</b></td><td>설정 다이얼로그 상단 EPC Mask 입력 필드</td></tr>"
+            + "<tr><td><b>동작</b></td><td>EPC가 mask 값으로 시작하는 태그만 처리 (대소문자 무시)</td></tr>"
+            + "<tr><td><b>빈 값</b></td><td>모든 태그를 처리 (필터 비활성)</td></tr>"
+            + "<tr><td><b>저장 파일</b></td><td>readers.cfg의 <code>MASK=</code> 라인</td></tr>"
+            + "<tr><td><b>적용 범위</b></td><td>모든 리더기에 공통 적용 (글로벌 설정)</td></tr>"
+            + "<tr><td><b>재시작</b></td><td>미들웨어 재시작 불필요 (설정 저장 즉시 적용)</td></tr>"
+            + "</table>"
+            + "<p style='font-size:11px;'>예: MASK=0420 설정 시 EPC가 0420으로 시작하는 태그만 표시/저장됩니다.</p>"
 
             // --- 로그 ---
             + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>로그</h2>"

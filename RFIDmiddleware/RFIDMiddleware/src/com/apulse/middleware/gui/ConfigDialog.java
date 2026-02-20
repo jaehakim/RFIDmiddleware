@@ -17,7 +17,7 @@ public class ConfigDialog extends JDialog {
 
     public ConfigDialog(Frame owner, List<ReaderConfig> configs) {
         super(owner, "리더기 설정", true);
-        setSize(820, 400);
+        setSize(870, 400);
         setLocationRelativeTo(owner);
         setLayout(new BorderLayout(5, 5));
 
@@ -35,21 +35,24 @@ public class ConfigDialog extends JDialog {
         table.getColumnModel().getColumn(1).setPreferredWidth(120);  // IP
         table.getColumnModel().getColumn(2).setPreferredWidth(55);   // 포트
         table.getColumnModel().getColumn(3).setPreferredWidth(40);   // 부저
-        table.getColumnModel().getColumn(4).setPreferredWidth(45);   // 출력1
-        table.getColumnModel().getColumn(5).setPreferredWidth(45);   // 출력2
-        table.getColumnModel().getColumn(6).setPreferredWidth(45);   // 출력3
-        table.getColumnModel().getColumn(7).setPreferredWidth(45);   // 출력4
-        table.getColumnModel().getColumn(8).setPreferredWidth(60);   // 드웰시간
+        table.getColumnModel().getColumn(4).setPreferredWidth(50);   // 경광등
+        table.getColumnModel().getColumn(5).setPreferredWidth(45);   // 출력1
+        table.getColumnModel().getColumn(6).setPreferredWidth(45);   // 출력2
+        table.getColumnModel().getColumn(7).setPreferredWidth(45);   // 출력3
+        table.getColumnModel().getColumn(8).setPreferredWidth(45);   // 출력4
+        table.getColumnModel().getColumn(9).setPreferredWidth(60);   // 드웰시간
 
-        // 부저 컬럼: 체크박스 렌더러/에디터
+        // 부저, 경광등 컬럼: 체크박스 렌더러/에디터
         table.getColumnModel().getColumn(3).setCellRenderer(table.getDefaultRenderer(Boolean.class));
         table.getColumnModel().getColumn(3).setCellEditor(table.getDefaultEditor(Boolean.class));
+        table.getColumnModel().getColumn(4).setCellRenderer(table.getDefaultRenderer(Boolean.class));
+        table.getColumnModel().getColumn(4).setCellEditor(table.getDefaultEditor(Boolean.class));
 
         // 숫자 컬럼 중앙 정렬
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-        for (int i = 2; i <= 8; i++) {
-            if (i != 3) { // 부저(체크박스) 제외
+        for (int i = 2; i <= 9; i++) {
+            if (i != 3 && i != 4) { // 부저, 경광등(체크박스) 제외
                 table.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
             }
         }
@@ -144,7 +147,7 @@ public class ConfigDialog extends JDialog {
     }
 
     private class ConfigTableModel extends AbstractTableModel {
-        private final String[] columns = {"이름", "IP 주소", "포트", "부저", "출력1", "출력2", "출력3", "출력4", "드웰시간"};
+        private final String[] columns = {"이름", "IP 주소", "포트", "부저", "경광등", "출력1", "출력2", "출력3", "출력4", "드웰시간"};
         private final List<ReaderConfig> data;
 
         ConfigTableModel(List<ReaderConfig> configs) {
@@ -152,6 +155,7 @@ public class ConfigDialog extends JDialog {
             for (ReaderConfig c : configs) {
                 ReaderConfig copy = new ReaderConfig(c.getName(), c.getIp(), c.getPort());
                 copy.setBuzzerEnabled(c.isBuzzerEnabled());
+                copy.setWarningLightEnabled(c.isWarningLightEnabled());
                 copy.setAntennaPowers(c.getAntennaPowers().clone());
                 copy.setDwellTime(c.getDwellTime());
                 data.add(copy);
@@ -192,8 +196,8 @@ public class ConfigDialog extends JDialog {
 
         @Override
         public Class<?> getColumnClass(int col) {
-            if (col == 3) return Boolean.class;
-            if (col == 2 || (col >= 4 && col <= 8)) return Integer.class;
+            if (col == 3 || col == 4) return Boolean.class;
+            if (col == 2 || (col >= 5 && col <= 9)) return Integer.class;
             return String.class;
         }
 
@@ -205,11 +209,12 @@ public class ConfigDialog extends JDialog {
                 case 1: return cfg.getIp();
                 case 2: return cfg.getPort();
                 case 3: return cfg.isBuzzerEnabled();
-                case 4: return cfg.getAntennaPowers()[0];
-                case 5: return cfg.getAntennaPowers()[1];
-                case 6: return cfg.getAntennaPowers()[2];
-                case 7: return cfg.getAntennaPowers()[3];
-                case 8: return cfg.getDwellTime();
+                case 4: return cfg.isWarningLightEnabled();
+                case 5: return cfg.getAntennaPowers()[0];
+                case 6: return cfg.getAntennaPowers()[1];
+                case 7: return cfg.getAntennaPowers()[2];
+                case 8: return cfg.getAntennaPowers()[3];
+                case 9: return cfg.getDwellTime();
                 default: return "";
             }
         }
@@ -243,14 +248,17 @@ public class ConfigDialog extends JDialog {
                 case 3:
                     cfg.setBuzzerEnabled(Boolean.TRUE.equals(value));
                     break;
-                case 4: case 5: case 6: case 7:
+                case 4:
+                    cfg.setWarningLightEnabled(Boolean.TRUE.equals(value));
+                    break;
+                case 5: case 6: case 7: case 8:
                     try {
                         int[] powers = cfg.getAntennaPowers();
-                        powers[col - 4] = Integer.parseInt(str);
+                        powers[col - 5] = Integer.parseInt(str);
                         cfg.setAntennaPowers(powers);
                     } catch (NumberFormatException ignored) {}
                     break;
-                case 8:
+                case 9:
                     try { cfg.setDwellTime(Integer.parseInt(str)); } catch (NumberFormatException ignored) {}
                     break;
             }

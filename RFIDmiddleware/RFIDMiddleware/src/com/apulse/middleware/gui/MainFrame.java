@@ -2,18 +2,23 @@ package com.apulse.middleware.gui;
 
 import com.apulse.middleware.config.DatabaseConfig;
 import com.apulse.middleware.config.ReaderConfig;
+import com.apulse.middleware.db.AssetRepository;
 import com.apulse.middleware.db.DatabaseManager;
 import com.apulse.middleware.db.TagRepository;
 import com.apulse.middleware.reader.ReaderConnection;
 import com.apulse.middleware.reader.ReaderManager;
 import com.apulse.middleware.reader.ReaderStatus;
+import com.apulse.middleware.reader.WarningLightController;
 import com.apulse.middleware.util.HexUtils;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
 public class MainFrame extends JFrame {
@@ -37,6 +42,7 @@ public class MainFrame extends JFrame {
         DatabaseConfig dbConfig = new DatabaseConfig();
         DatabaseManager.getInstance().initialize(dbConfig);
         TagRepository.getInstance().start();
+        AssetRepository.getInstance().start(30);
 
         readerManager = new ReaderManager();
         statusPanel = new ReaderStatusPanel();
@@ -58,6 +64,8 @@ public class MainFrame extends JFrame {
                 if (result == JOptionPane.YES_OPTION) {
                     logPanel.appendLog("Shutting down...");
                     readerManager.shutdown();
+                    WarningLightController.getInstance().shutdown();
+                    AssetRepository.getInstance().shutdown();
                     TagRepository.getInstance().shutdown();
                     DatabaseManager.getInstance().shutdown();
                     dispose();
@@ -93,6 +101,7 @@ public class MainFrame extends JFrame {
         });
         JButton configBtn = createToolButton("설정", e -> openConfigDialog());
         JButton clearTagsBtn = createToolButton("태그 초기화", e -> tagDataPanel.clearTags());
+        JButton assetDbBtn = createToolButton("자산 DB", e -> showAssetDbDialog());
         JButton helpBtn = createToolButton("도움말", e -> showHelpDialog());
 
         toolBar.add(connectAllBtn);
@@ -104,6 +113,8 @@ public class MainFrame extends JFrame {
         toolBar.add(stopInvBtn);
         toolBar.addSeparator(new Dimension(15, 0));
         toolBar.add(clearTagsBtn);
+        toolBar.addSeparator(new Dimension(5, 0));
+        toolBar.add(assetDbBtn);
         toolBar.add(Box.createHorizontalGlue());
         toolBar.add(helpBtn);
         toolBar.addSeparator(new Dimension(5, 0));
@@ -187,14 +198,51 @@ public class MainFrame extends JFrame {
         };
 
         ReaderConnection.TagDataListener tagListener = (connection, epc, rssi) -> {
+            // 자산정보 및 상태 판단 (백그라운드 스레드에서 실행)
+            AssetRepository.AssetInfo assetInfo = AssetRepository.getInstance().getAssetInfo(epc);
+            AssetRepository.AssetInfo unauthorizedAsset = AssetRepository.getInstance().checkUnauthorizedExport(epc);
+
+            // 상태 결정: 자산 아님 → null, 자산+미허가 → 반출알림, 자산+허용 → 반출허용
+            String assetStatus = null;
+            if (assetInfo != null) {
+                assetStatus = (unauthorizedAsset != null)
+                    ? TagDataPanel.STATUS_ALERT
+                    : TagDataPanel.STATUS_PERMITTED;
+            }
+
+            final String finalStatus = assetStatus;
             SwingUtilities.invokeLater(() -> {
+                String assetNumber = assetInfo != null ? assetInfo.getAssetNumber() : null;
+                String assetName = assetInfo != null ? assetInfo.getAssetName() : null;
+                String department = assetInfo != null ? assetInfo.getDepartment() : null;
+
                 boolean isNew = tagDataPanel.addTag(
-                    connection.getConfig().getName(), epc, rssi);
+                    connection.getConfig().getName(), epc, rssi,
+                    assetNumber, assetName, department, finalStatus);
                 if (isNew) {
                     // 캐시 MISS → DB 저장
                     TagRepository.getInstance().insertTagRead(
                         epc, connection.getConfig().getName(),
                         rssi, HexUtils.nowShort());
+                }
+
+                // 미허가 반출 감지 → 경광등 + DB 기록 + 로그
+                if (unauthorizedAsset != null && AssetRepository.getInstance().shouldAlert(epc)) {
+                    String time = HexUtils.nowShort();
+                    String readerName = connection.getConfig().getName();
+
+                    // 경광등 트리거 (5초 후 자동 해제)
+                    WarningLightController.getInstance().triggerWarningLight(connection);
+
+                    // DB 기록
+                    AssetRepository.getInstance().insertAlert(
+                        epc, unauthorizedAsset.getAssetNumber(), readerName, rssi, time);
+
+                    // 로그
+                    logPanel.appendLog(readerName,
+                        "UNAUTHORIZED EXPORT: EPC=" + epc
+                        + ", Asset=" + unauthorizedAsset.getAssetNumber()
+                        + " (" + (unauthorizedAsset.getAssetName() != null ? unauthorizedAsset.getAssetName() : "") + ")");
                 }
             });
         };
@@ -271,6 +319,8 @@ public class MainFrame extends JFrame {
             + "<tr><td><b>EPC</b></td><td>태그의 EPC(Electronic Product Code) 16진수 값</td></tr>"
             + "<tr><td><b>RSSI</b></td><td>수신 신호 강도 (dBm), 값이 클수록 가까이 위치</td></tr>"
             + "<tr><td><b>횟수</b></td><td>동일 태그가 읽힌 누적 횟수 (중복제거 모드)</td></tr>"
+            + "<tr><td style='background:#FFD2D2;color:#B40000;'><b>빨간 행</b></td>"
+            +     "<td>미허가 반출 자산 감지 (경광등 알림 + DB 기록)</td></tr>"
             + "</table>"
 
             + "<h3>하단 기능</h3>"
@@ -280,6 +330,33 @@ public class MainFrame extends JFrame {
             + "<tr><td><b>엑셀 저장</b></td><td>현재 태그 목록을 .xls 파일로 내보내기</td></tr>"
             + "<tr><td><b>DB 조회</b></td><td>기간을 지정하여 DB에 저장된 태그 이력 조회</td></tr>"
             + "</table>"
+
+            // --- DB 데이터 흐름 ---
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>DB 테이블별 데이터 흐름</h2>"
+            + "<table cellpadding='4' cellspacing='0' border='1' style='border-collapse:collapse;'>"
+            + "<tr style='background:#E8E8E8;'>"
+            +   "<th>테이블</th><th>관리 주체</th><th>미들웨어 동작</th><th>시점</th></tr>"
+            + "<tr><td><b>assets</b><br>(자산 마스터)</td>"
+            +   "<td>외부 시스템</td><td>SELECT 조회</td>"
+            +   "<td>시작 시 + 30초마다<br>메모리 캐시 갱신</td></tr>"
+            + "<tr><td><b>export_permissions</b><br>(반출허용 목록)</td>"
+            +   "<td>외부 시스템</td><td>SELECT 조회<br>(유효기간 체크)</td>"
+            +   "<td>시작 시 + 30초마다<br>메모리 캐시 갱신</td></tr>"
+            + "<tr><td><b>export_alerts</b><br>(반출알림 이력)</td>"
+            +   "<td><b>미들웨어</b></td><td><b>INSERT</b></td>"
+            +   "<td>미허가 반출 감지 시<br>(30초 중복제거)</td></tr>"
+            + "<tr><td><b>tag_reads</b><br>(태그 읽기 이력)</td>"
+            +   "<td><b>미들웨어</b></td><td><b>INSERT</b><br>(배치 처리)</td>"
+            +   "<td>태그 감지 시<br>(캐시 MISS만)</td></tr>"
+            + "</table>"
+
+            + "<h3>미허가 반출 판단 흐름</h3>"
+            + "<p style='font-size:11px; line-height:1.6;'>"
+            + "태그 감지 &rarr; assets에 EPC 존재? &rarr; <b>Yes</b>: export_permissions에 유효 허용 있음? "
+            + "&rarr; <b>No</b>: <span style='color:#B40000;'><b>미허가 반출!</b></span> "
+            + "(경광등 ON 5초 + 빨간 행 표시 + export_alerts INSERT + 로그)<br>"
+            + "&rarr; assets에 없거나 반출 허용됨 &rarr; 일반 태그 처리"
+            + "</p>"
 
             // --- 로그 ---
             + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>로그</h2>"
@@ -298,9 +375,178 @@ public class MainFrame extends JFrame {
         helpPane.setCaretPosition(0);
 
         JScrollPane scrollPane = new JScrollPane(helpPane);
-        scrollPane.setPreferredSize(new Dimension(520, 520));
+        scrollPane.setPreferredSize(new Dimension(540, 600));
 
         JOptionPane.showMessageDialog(this, scrollPane, "도움말", JOptionPane.PLAIN_MESSAGE);
+    }
+
+    /** 자산 DB 조회 다이얼로그 (3개 탭: 자산목록, 반출허용, 반출알림) */
+    private void showAssetDbDialog() {
+        if (!DatabaseManager.getInstance().isAvailable()) {
+            JOptionPane.showMessageDialog(this,
+                "데이터베이스에 연결되어 있지 않습니다.",
+                "자산 DB", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        JTabbedPane tabbedPane = new JTabbedPane();
+        tabbedPane.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
+
+        // --- 탭 1: 자산 목록 ---
+        tabbedPane.addTab("자산 목록", createAssetsTab());
+
+        // --- 탭 2: 반출허용 목록 ---
+        tabbedPane.addTab("반출허용 목록", createPermissionsTab());
+
+        // --- 탭 3: 반출알림 이력 ---
+        tabbedPane.addTab("반출알림 이력", createAlertsTab());
+
+        tabbedPane.setPreferredSize(new Dimension(750, 450));
+
+        JOptionPane.showMessageDialog(this, tabbedPane, "자산 DB 조회", JOptionPane.PLAIN_MESSAGE);
+    }
+
+    /** 자산 목록 탭 생성 */
+    private JPanel createAssetsTab() {
+        JPanel panel = new JPanel(new BorderLayout());
+        String[] cols = {"자산번호", "EPC", "자산명", "부서", "등록일시"};
+        List<String[]> data = AssetRepository.getInstance().queryAssets();
+
+        Object[][] rows = new Object[data.size()][cols.length];
+        for (int i = 0; i < data.size(); i++) rows[i] = data.get(i);
+
+        JTable table = createStyledTable(rows, cols);
+        table.getColumnModel().getColumn(0).setPreferredWidth(80);
+        table.getColumnModel().getColumn(1).setPreferredWidth(200);
+        table.getColumnModel().getColumn(2).setPreferredWidth(120);
+        table.getColumnModel().getColumn(3).setPreferredWidth(80);
+        table.getColumnModel().getColumn(4).setPreferredWidth(130);
+
+        JLabel countLabel = new JLabel("  총 " + data.size() + "건");
+        countLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+
+        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        panel.add(countLabel, BorderLayout.SOUTH);
+        return panel;
+    }
+
+    /** 반출허용 목록 탭 생성 */
+    private JPanel createPermissionsTab() {
+        JPanel panel = new JPanel(new BorderLayout());
+        String[] cols = {"EPC", "자산번호", "자산명", "허용시작", "허용종료", "사유", "상태"};
+        List<String[]> data = AssetRepository.getInstance().queryExportPermissions();
+
+        Object[][] rows = new Object[data.size()][cols.length];
+        for (int i = 0; i < data.size(); i++) rows[i] = data.get(i);
+
+        JTable table = createStyledTable(rows, cols);
+        table.getColumnModel().getColumn(0).setPreferredWidth(180);
+        table.getColumnModel().getColumn(1).setPreferredWidth(70);
+        table.getColumnModel().getColumn(2).setPreferredWidth(90);
+        table.getColumnModel().getColumn(3).setPreferredWidth(120);
+        table.getColumnModel().getColumn(4).setPreferredWidth(120);
+        table.getColumnModel().getColumn(5).setPreferredWidth(100);
+        table.getColumnModel().getColumn(6).setPreferredWidth(40);
+
+        // 상태 컬럼 색상 렌더러
+        table.getColumnModel().getColumn(6).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object value,
+                    boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(t, value, isSelected, hasFocus, row, column);
+                setHorizontalAlignment(CENTER);
+                if (!isSelected && value != null) {
+                    if ("유효".equals(value.toString())) {
+                        c.setForeground(new Color(0, 140, 0));
+                    } else {
+                        c.setForeground(new Color(180, 0, 0));
+                    }
+                }
+                return c;
+            }
+        });
+
+        JLabel countLabel = new JLabel("  총 " + data.size() + "건");
+        countLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+
+        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        panel.add(countLabel, BorderLayout.SOUTH);
+        return panel;
+    }
+
+    /** 반출알림 이력 탭 생성 */
+    private JPanel createAlertsTab() {
+        JPanel panel = new JPanel(new BorderLayout());
+
+        // 상단: 기간 선택
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        filterPanel.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String today = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        JTextField fromField = new JTextField(today + " 00:00:00", 16);
+        JTextField toField = new JTextField(sdf.format(new Date()), 16);
+        fromField.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+        toField.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+        JButton queryBtn = new JButton("조회");
+        queryBtn.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+
+        filterPanel.add(new JLabel("시작:"));
+        filterPanel.add(fromField);
+        filterPanel.add(new JLabel("  종료:"));
+        filterPanel.add(toField);
+        filterPanel.add(queryBtn);
+
+        // 테이블
+        String[] cols = {"알림시간", "리더기", "EPC", "자산번호", "자산명", "RSSI"};
+        JTable table = createStyledTable(new Object[0][cols.length], cols);
+        table.getColumnModel().getColumn(0).setPreferredWidth(130);
+        table.getColumnModel().getColumn(1).setPreferredWidth(70);
+        table.getColumnModel().getColumn(2).setPreferredWidth(200);
+        table.getColumnModel().getColumn(3).setPreferredWidth(80);
+        table.getColumnModel().getColumn(4).setPreferredWidth(100);
+        table.getColumnModel().getColumn(5).setPreferredWidth(40);
+
+        JLabel countLabel = new JLabel("  조회 버튼을 누르세요");
+        countLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+
+        // 조회 버튼 동작
+        queryBtn.addActionListener(e -> {
+            List<String[]> data = AssetRepository.getInstance()
+                .queryExportAlerts(fromField.getText().trim(), toField.getText().trim());
+            Object[][] rows = new Object[data.size()][cols.length];
+            for (int i = 0; i < data.size(); i++) rows[i] = data.get(i);
+            table.setModel(new javax.swing.table.DefaultTableModel(rows, cols) {
+                @Override public boolean isCellEditable(int r, int c) { return false; }
+            });
+            table.getColumnModel().getColumn(0).setPreferredWidth(130);
+            table.getColumnModel().getColumn(1).setPreferredWidth(70);
+            table.getColumnModel().getColumn(2).setPreferredWidth(200);
+            table.getColumnModel().getColumn(3).setPreferredWidth(80);
+            table.getColumnModel().getColumn(4).setPreferredWidth(100);
+            table.getColumnModel().getColumn(5).setPreferredWidth(40);
+            countLabel.setText("  총 " + data.size() + "건");
+        });
+
+        // 초기 조회 실행
+        queryBtn.doClick();
+
+        panel.add(filterPanel, BorderLayout.NORTH);
+        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        panel.add(countLabel, BorderLayout.SOUTH);
+        return panel;
+    }
+
+    /** 공통 스타일 JTable 생성 */
+    private JTable createStyledTable(Object[][] rows, String[] cols) {
+        JTable table = new JTable(rows, cols) {
+            @Override public boolean isCellEditable(int row, int col) { return false; }
+        };
+        table.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
+        table.setRowHeight(22);
+        table.getTableHeader().setFont(new Font("맑은 고딕", Font.BOLD, 12));
+        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        table.setAutoCreateRowSorter(true);
+        return table;
     }
 
     /** 설정 다이얼로그 열기 */

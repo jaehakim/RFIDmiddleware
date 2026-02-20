@@ -51,7 +51,6 @@ public class DatabaseConfig {
     public int getCacheMaxSize() { return cacheMaxSize; }
 
     public String getJdbcUrl() {
-        return "jdbc:mariadb://" + host + ":" + port + "/" + dbName
-            + "?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true";
+        return "jdbc:mariadb://" + host + ":" + port + "/" + dbName;
     }
 }

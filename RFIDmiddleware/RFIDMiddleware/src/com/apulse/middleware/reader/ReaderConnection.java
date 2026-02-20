@@ -302,14 +302,14 @@ public class ReaderConnection {
         }
     }
 
-    /** 경광등(릴레이) ON */
+    /** 경광등(릴레이1) ON - 빨간등 */
     public synchronized void lightOn() {
         if (reader == null || (status != ReaderStatus.CONNECTED && status != ReaderStatus.READING)) {
             log("Cannot control light (not connected)");
             return;
         }
         try {
-            int result = reader.setRelayStatus((byte) 0, (byte) 1);
+            int result = reader.setRelayStatus((byte) 2, (byte) 1);
             if (result == FixedReaderApiError.ErrNoError) {
                 lightOn = true;
                 for (ReaderConnectionListener l : listeners) {
@@ -324,14 +324,14 @@ public class ReaderConnection {
         }
     }
 
-    /** 경광등(릴레이) OFF */
+    /** 경광등(릴레이1) OFF - 빨간등 */
     public synchronized void lightOff() {
         if (reader == null || (status != ReaderStatus.CONNECTED && status != ReaderStatus.READING)) {
             log("Cannot control light (not connected)");
             return;
         }
         try {
-            int result = reader.setRelayStatus((byte) 0, (byte) 0);
+            int result = reader.setRelayStatus((byte) 2, (byte) 0);
             if (result == FixedReaderApiError.ErrNoError) {
                 lightOn = false;
                 for (ReaderConnectionListener l : listeners) {
@@ -502,9 +502,14 @@ public class ReaderConnection {
      * PC bits[15:11] = EPC 워드 수
      */
     private void handleReport(int readerId, int cmdCode, byte[] reportData, int reportDataLen) {
-        System.out.println(String.format("[DEBUG-%s] cmdCode=0x%02X, len=%d, raw=%s",
-            config.getName(), cmdCode, reportDataLen,
+        System.out.println(String.format("[DEBUG-%s] cmdCode=0x%02X, len=%d, status=%s, raw=%s",
+            config.getName(), cmdCode, reportDataLen, status,
             HexUtils.bytesToHex(reportData, 0, Math.min(reportDataLen, 50))));
+
+        // 인벤토리 중이 아니면 태그 데이터로 처리하지 않음
+        if (status != ReaderStatus.READING) {
+            return;
+        }
 
         if (reportData == null || reportDataLen < 7) {
             return;

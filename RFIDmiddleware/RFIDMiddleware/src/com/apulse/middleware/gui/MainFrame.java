@@ -231,8 +231,10 @@ public class MainFrame extends JFrame {
                     String time = HexUtils.nowShort();
                     String readerName = connection.getConfig().getName();
 
-                    // 경광등 트리거 (5초 후 자동 해제)
-                    WarningLightController.getInstance().triggerWarningLight(connection);
+                    // 경광등 트리거 (리더기 설정에서 경광등 '적용' 시에만)
+                    if (connection.getConfig().isWarningLightEnabled()) {
+                        WarningLightController.getInstance().triggerWarningLight(connection);
+                    }
 
                     // DB 기록
                     AssetRepository.getInstance().insertAlert(
@@ -311,6 +313,24 @@ public class MainFrame extends JFrame {
             + "<tr><td><b>설정 저장</b></td><td>가져온 설정값이 readers.cfg에 자동 저장됨</td></tr>"
             + "</table>"
 
+            // --- 경광등 ---
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>경광등 (반출알림)</h2>"
+            + "<table cellpadding='4' cellspacing='0' border='0'>"
+            + "<tr><td><b>동작 조건</b></td><td>반출알림 감지 + 리더기 설정에서 경광등 '적용'(1)</td></tr>"
+            + "<tr><td><b>릴레이 채널</b></td><td>릴레이 2번 = <b style='color:#DC0000;'>빨간등</b></td></tr>"
+            + "<tr><td><b>점등 시간</b></td><td><b>5초</b> 후 자동 소등</td></tr>"
+            + "<tr><td><b>재감지 시</b></td><td>타이머 리셋 (5초 재시작)</td></tr>"
+            + "<tr><td><b>알림 중복제거</b></td><td>같은 EPC 30초 내 재알림 방지</td></tr>"
+            + "</table>"
+
+            + "<h3>릴레이 채널 매핑</h3>"
+            + "<table cellpadding='3' cellspacing='0' border='1' style='border-collapse:collapse;'>"
+            + "<tr style='background:#E8E8E8;'><th>릴레이</th><th>색상</th><th>용도</th></tr>"
+            + "<tr><td align='center'>0</td><td>-</td><td>미사용</td></tr>"
+            + "<tr><td align='center'>1</td><td style='color:#00A000;'><b>녹색</b></td><td>수동 제어 (우클릭 메뉴)</td></tr>"
+            + "<tr><td align='center'>2</td><td style='color:#DC0000;'><b>빨간</b></td><td>반출알림 자동 점등 (5초)</td></tr>"
+            + "</table>"
+
             // --- 태그 데이터 ---
             + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>태그 데이터</h2>"
             + "<table cellpadding='4' cellspacing='0' border='0'>"
@@ -319,8 +339,10 @@ public class MainFrame extends JFrame {
             + "<tr><td><b>EPC</b></td><td>태그의 EPC(Electronic Product Code) 16진수 값</td></tr>"
             + "<tr><td><b>RSSI</b></td><td>수신 신호 강도 (dBm), 값이 클수록 가까이 위치</td></tr>"
             + "<tr><td><b>횟수</b></td><td>동일 태그가 읽힌 누적 횟수 (중복제거 모드)</td></tr>"
-            + "<tr><td style='background:#FFD2D2;color:#B40000;'><b>빨간 행</b></td>"
-            +     "<td>미허가 반출 자산 감지 (경광등 알림 + DB 기록)</td></tr>"
+            + "<tr><td style='background:#FFD2D2;color:#B40000;'><b>반출알림 행</b></td>"
+            +     "<td>미허가 반출 자산 (경광등 빨간등 + DB 기록)</td></tr>"
+            + "<tr><td style='background:#D2F0D2;color:#006E00;'><b>반출허용 행</b></td>"
+            +     "<td>반출 허용된 자산 (정상 반출)</td></tr>"
             + "</table>"
 
             + "<h3>하단 기능</h3>"

@@ -8,6 +8,13 @@ public class TagData {
     private String firstSeen;
     private String lastSeen;
 
+    // 자산 정보 (자산에 해당하지 않으면 null)
+    private String assetNumber;
+    private String assetName;
+    private String department;
+    /** 상태: null=일반태그, "반출허용", "반출알림" */
+    private String assetStatus;
+
     public TagData(String epc, String readerName, int rssi, String time) {
         this.epc = epc;
         this.readerName = readerName;
@@ -23,6 +30,17 @@ public class TagData {
     public int getCount() { return count; }
     public String getFirstSeen() { return firstSeen; }
     public String getLastSeen() { return lastSeen; }
+    public String getAssetNumber() { return assetNumber; }
+    public String getAssetName() { return assetName; }
+    public String getDepartment() { return department; }
+    public String getAssetStatus() { return assetStatus; }
+
+    public void setAssetInfo(String assetNumber, String assetName, String department, String assetStatus) {
+        this.assetNumber = assetNumber;
+        this.assetName = assetName;
+        this.department = department;
+        this.assetStatus = assetStatus;
+    }
 
     public void update(int rssi, String time) {
         this.rssi = rssi;

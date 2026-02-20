@@ -21,7 +21,9 @@ import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class TagDataPanel extends JPanel {
@@ -30,10 +32,15 @@ public class TagDataPanel extends JPanel {
     private final JLabel countLabel;
     private final JCheckBox deduplicateCheck;
 
-    /** Caffeine 캐시: EPC 키로 TTL 기반 중복제거 */
-    private Cache<String, TagData> tagCache;
+    /** Caffeine 캐시: DB 저장 여부 판단용 (TTL 기반, 화면 표시에는 사용 안 함) */
+    private Cache<String, Boolean> dbDedupCache;
+    /** 중복제거 모드: EPC별 최신 데이터 (만료 없음, 초기화 시까지 유지) */
+    private final Map<String, TagData> tagDedup = new LinkedHashMap<>();
     /** 일반 모드: 모든 읽기를 개별 행으로 저장 */
     private final List<TagData> tagList = new ArrayList<>();
+
+    public static final String STATUS_PERMITTED = "반출허용";
+    public static final String STATUS_ALERT = "반출알림";
 
     public TagDataPanel() {
         this(30, 10000);
@@ -43,32 +50,35 @@ public class TagDataPanel extends JPanel {
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createTitledBorder("태그 데이터"));
 
-        tagCache = Caffeine.newBuilder()
+        dbDedupCache = Caffeine.newBuilder()
             .expireAfterWrite(cacheTtlSeconds, TimeUnit.SECONDS)
             .maximumSize(cacheMaxSize)
             .build();
 
         tableModel = new TagTableModel();
         table = new JTable(tableModel);
-        table.setFont(new Font("Consolas", Font.PLAIN, 12));
+        table.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
         table.setRowHeight(22);
         table.getTableHeader().setFont(new Font("맑은 고딕", Font.BOLD, 12));
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setAutoCreateRowSorter(true);
 
         // 컬럼 너비 설정
-        table.getColumnModel().getColumn(0).setPreferredWidth(130);  // 시간 (yyyy-MM-dd HH:mm:ss)
+        table.getColumnModel().getColumn(0).setPreferredWidth(130);  // 시간
         table.getColumnModel().getColumn(1).setPreferredWidth(60);   // 리더기
-        table.getColumnModel().getColumn(2).setPreferredWidth(250);  // EPC
+        table.getColumnModel().getColumn(2).setPreferredWidth(200);  // EPC
         table.getColumnModel().getColumn(3).setPreferredWidth(35);   // RSSI
         table.getColumnModel().getColumn(4).setPreferredWidth(35);   // 횟수
+        table.getColumnModel().getColumn(5).setPreferredWidth(80);   // 자산번호
+        table.getColumnModel().getColumn(6).setPreferredWidth(100);  // 자산명
+        table.getColumnModel().getColumn(7).setPreferredWidth(70);   // 부서
+        table.getColumnModel().getColumn(8).setPreferredWidth(65);   // 상태
 
-        // 중앙 정렬
-        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-        table.getColumnModel().getColumn(0).setCellRenderer(centerRenderer);
-        table.getColumnModel().getColumn(3).setCellRenderer(centerRenderer);
-        table.getColumnModel().getColumn(4).setCellRenderer(centerRenderer);
+        // 상태별 배경색 렌더러
+        StatusAwareRenderer renderer = new StatusAwareRenderer();
+        for (int i = 0; i < table.getColumnCount(); i++) {
+            table.getColumnModel().getColumn(i).setCellRenderer(renderer);
+        }
 
         JScrollPane scrollPane = new JScrollPane(table);
         add(scrollPane, BorderLayout.CENTER);
@@ -109,25 +119,36 @@ public class TagDataPanel extends JPanel {
 
     /**
      * 태그 데이터 추가/업데이트
+     * @param assetStatus 상태 (null=일반태그, STATUS_PERMITTED="반출허용", STATUS_ALERT="반출알림")
      * @return true = 캐시 MISS (새 태그 또는 TTL 만료 후 재읽기) → DB 저장 필요
      *         false = 캐시 HIT (중복) → DB 저장 불필요
      */
-    public boolean addTag(String readerName, String epc, int rssi) {
+    public boolean addTag(String readerName, String epc, int rssi,
+                          String assetNumber, String assetName, String department,
+                          String assetStatus) {
         String time = HexUtils.nowShort();
 
-        // Caffeine 캐시로 중복제거: EPC만으로 키 (리더기 무관)
-        TagData existing = tagCache.getIfPresent(epc);
-        boolean isNew;
-        if (existing != null) {
-            existing.update(rssi, time, readerName);
-            isNew = false;  // 캐시 HIT → DB 저장 불필요
-        } else {
-            tagCache.put(epc, new TagData(epc, readerName, rssi, time));
-            isNew = true;   // 캐시 MISS → DB 저장 필요
+        // DB 저장 판단: Caffeine TTL 캐시 (화면 표시와 무관)
+        boolean isNew = (dbDedupCache.getIfPresent(epc) == null);
+        if (isNew) {
+            dbDedupCache.put(epc, Boolean.TRUE);
         }
 
-        // 일반 List에도 항상 추가 (체크 전환 시 사용)
-        tagList.add(new TagData(epc, readerName, rssi, time));
+        // 중복제거 표시용 Map (만료 없음, 초기화 시까지 유지)
+        TagData existing = tagDedup.get(epc);
+        if (existing != null) {
+            existing.update(rssi, time, readerName);
+            existing.setAssetInfo(assetNumber, assetName, department, assetStatus);
+        } else {
+            TagData newTag = new TagData(epc, readerName, rssi, time);
+            newTag.setAssetInfo(assetNumber, assetName, department, assetStatus);
+            tagDedup.put(epc, newTag);
+        }
+
+        // 일반 List에도 항상 추가 (비중복제거 모드용)
+        TagData listTag = new TagData(epc, readerName, rssi, time);
+        listTag.setAssetInfo(assetNumber, assetName, department, assetStatus);
+        tagList.add(listTag);
 
         tableModel.refresh();
         updateCountLabel();
@@ -142,7 +163,7 @@ public class TagDataPanel extends JPanel {
 
     private void updateCountLabel() {
         int count = isDeduplicateMode()
-            ? (int) tagCache.estimatedSize()
+            ? tagDedup.size()
             : tagList.size();
         countLabel.setText("Tags: " + count);
     }
@@ -154,7 +175,7 @@ public class TagDataPanel extends JPanel {
     /** 현재 모드에 따른 데이터 리스트 반환 */
     private List<TagData> getCurrentData() {
         if (isDeduplicateMode()) {
-            return new ArrayList<>(tagCache.asMap().values());
+            return new ArrayList<>(tagDedup.values());
         } else {
             return new ArrayList<>(tagList);
         }
@@ -162,7 +183,8 @@ public class TagDataPanel extends JPanel {
 
     /** 태그 데이터 초기화 */
     public void clearTags() {
-        tagCache.invalidateAll();
+        dbDedupCache.invalidateAll();
+        tagDedup.clear();
         tagList.clear();
         tableModel.refresh();
         updateCountLabel();
@@ -273,6 +295,10 @@ public class TagDataPanel extends JPanel {
                 pw.println("  <td>" + tag.getEpc() + "</td>");
                 pw.println("  <td>" + tag.getRssi() + "</td>");
                 pw.println("  <td>" + tag.getCount() + "</td>");
+                pw.println("  <td>" + (tag.getAssetNumber() != null ? tag.getAssetNumber() : "") + "</td>");
+                pw.println("  <td>" + (tag.getAssetName() != null ? tag.getAssetName() : "") + "</td>");
+                pw.println("  <td>" + (tag.getDepartment() != null ? tag.getDepartment() : "") + "</td>");
+                pw.println("  <td>" + (tag.getAssetStatus() != null ? tag.getAssetStatus() : "") + "</td>");
                 pw.println("</tr>");
             }
 
@@ -291,7 +317,7 @@ public class TagDataPanel extends JPanel {
     }
 
     private class TagTableModel extends AbstractTableModel {
-        private final String[] columns = {"시간", "리더기", "EPC", "RSSI", "횟수"};
+        private final String[] columns = {"시간", "리더기", "EPC", "RSSI", "횟수", "자산번호", "자산명", "부서", "상태"};
         private List<TagData> data = new ArrayList<>();
 
         void refresh() {
@@ -317,6 +343,10 @@ public class TagDataPanel extends JPanel {
                 case 2: return tag.getEpc();
                 case 3: return tag.getRssi();
                 case 4: return tag.getCount();
+                case 5: return tag.getAssetNumber() != null ? tag.getAssetNumber() : "";
+                case 6: return tag.getAssetName() != null ? tag.getAssetName() : "";
+                case 7: return tag.getDepartment() != null ? tag.getDepartment() : "";
+                case 8: return tag.getAssetStatus() != null ? tag.getAssetStatus() : "";
                 default: return "";
             }
         }
@@ -325,6 +355,52 @@ public class TagDataPanel extends JPanel {
         public Class<?> getColumnClass(int col) {
             if (col == 3 || col == 4) return Integer.class;
             return String.class;
+        }
+
+        /** 해당 행의 상태 반환 */
+        String getStatusAt(int row) {
+            if (row >= 0 && row < data.size()) {
+                return data.get(row).getAssetStatus();
+            }
+            return null;
+        }
+    }
+
+    /** 상태별 배경색: 반출알림=빨강, 반출허용=초록, 일반=흰색 */
+    private class StatusAwareRenderer extends DefaultTableCellRenderer {
+        private static final Color ALERT_BG = new Color(255, 210, 210);
+        private static final Color ALERT_FG = new Color(180, 0, 0);
+        private static final Color PERMIT_BG = new Color(210, 240, 210);
+        private static final Color PERMIT_FG = new Color(0, 110, 0);
+
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value,
+                boolean isSelected, boolean hasFocus, int row, int column) {
+            Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+            if (!isSelected) {
+                int modelRow = table.convertRowIndexToModel(row);
+                String status = tableModel.getStatusAt(modelRow);
+                if (STATUS_ALERT.equals(status)) {
+                    c.setBackground(ALERT_BG);
+                    c.setForeground(ALERT_FG);
+                } else if (STATUS_PERMITTED.equals(status)) {
+                    c.setBackground(PERMIT_BG);
+                    c.setForeground(PERMIT_FG);
+                } else {
+                    c.setBackground(Color.WHITE);
+                    c.setForeground(Color.BLACK);
+                }
+            }
+
+            // 중앙 정렬 (시간, RSSI, 횟수, 자산번호, 부서, 상태)
+            if (column == 0 || column == 3 || column == 4 || column == 5 || column == 7 || column == 8) {
+                setHorizontalAlignment(JLabel.CENTER);
+            } else {
+                setHorizontalAlignment(JLabel.LEFT);
+            }
+
+            return c;
         }
     }
 }

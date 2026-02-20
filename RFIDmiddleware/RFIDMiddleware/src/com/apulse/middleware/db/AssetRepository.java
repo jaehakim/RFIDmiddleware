@@ -10,7 +10,10 @@ import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -58,8 +61,15 @@ public class AssetRepository {
             t.setDaemon(true);
             return t;
         });
-        scheduler.scheduleAtFixedRate(this::refreshCache,
-            refreshIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                refreshCache();
+            } catch (Throwable t) {
+                // scheduleAtFixedRate는 예외 발생 시 이후 실행을 중단하므로 반드시 catch
+                System.out.println("[AssetRepository] Cache refresh FATAL: " + t.getMessage());
+                t.printStackTrace();
+            }
+        }, refreshIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
         System.out.println("[AssetRepository] Started (refresh every " + refreshIntervalSeconds + "s)");
     }
 
@@ -100,7 +110,7 @@ public class AssetRepository {
             permittedEpcs.addAll(newPermitted);
 
             System.out.println("[AssetRepository] Cache refreshed: assets=" + assetMap.size()
-                + ", permitted=" + permittedEpcs.size());
+                + ", permitted=" + permittedEpcs.size() + " " + permittedEpcs);
         } catch (Exception e) {
             System.out.println("[AssetRepository] Cache refresh failed: " + e.getMessage());
         }
@@ -286,6 +296,25 @@ public class AssetRepository {
 
     public int getPermittedCount() {
         return permittedEpcs.size();
+    }
+
+    /** 자산 캐시 복사본 (조회용) */
+    public Map<String, AssetInfo> getAssetMapCopy() {
+        return new HashMap<>(assetMap);
+    }
+
+    /** 반출허용 EPC 캐시 복사본 (조회용) */
+    public Set<String> getPermittedEpcsCopy() {
+        return new HashSet<>(permittedEpcs);
+    }
+
+    /** 알림 중복제거 캐시 키 목록 (조회용) */
+    public Set<String> getAlertDedupKeys() {
+        return new HashSet<>(alertDedup.asMap().keySet());
+    }
+
+    public long getAlertDedupSize() {
+        return alertDedup.estimatedSize();
     }
 
     public void shutdown() {

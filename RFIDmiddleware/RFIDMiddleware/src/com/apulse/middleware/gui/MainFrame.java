@@ -19,8 +19,11 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class MainFrame extends JFrame {
     private static final String CONFIG_FILE = "config" + File.separator + "readers.cfg";
@@ -474,7 +477,7 @@ public class MainFrame extends JFrame {
         JOptionPane.showMessageDialog(this, scrollPane, "도움말", JOptionPane.PLAIN_MESSAGE);
     }
 
-    /** 자산 DB 조회 다이얼로그 (3개 탭: 자산목록, 반출허용, 반출알림) */
+    /** 자산 DB 조회 다이얼로그 (4개 탭: 자산목록, 반출허용, 반출알림, 캐시상태) */
     private void showAssetDbDialog() {
         if (!DatabaseManager.getInstance().isAvailable()) {
             JOptionPane.showMessageDialog(this,
@@ -494,6 +497,9 @@ public class MainFrame extends JFrame {
 
         // --- 탭 3: 반출알림 이력 ---
         tabbedPane.addTab("반출알림 이력", createAlertsTab());
+
+        // --- 탭 4: 캐시 상태 ---
+        tabbedPane.addTab("캐시 상태", createCacheTab());
 
         tabbedPane.setPreferredSize(new Dimension(750, 450));
 
@@ -627,6 +633,121 @@ public class MainFrame extends JFrame {
         panel.add(filterPanel, BorderLayout.NORTH);
         panel.add(new JScrollPane(table), BorderLayout.CENTER);
         panel.add(countLabel, BorderLayout.SOUTH);
+        return panel;
+    }
+
+    /** 캐시 상태 탭 생성 */
+    private JPanel createCacheTab() {
+        JPanel panel = new JPanel(new BorderLayout());
+
+        // 상단: 요약 + 버튼
+        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JLabel summaryLabel = new JLabel();
+        summaryLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+
+        JButton refreshBtn = new JButton("DB 갱신");
+        refreshBtn.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+        refreshBtn.setToolTipText("AssetRepository.refreshCache() 즉시 실행");
+
+        JButton reloadBtn = new JButton("화면 새로고침");
+        reloadBtn.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+
+        topPanel.add(summaryLabel);
+        topPanel.add(Box.createHorizontalStrut(10));
+        topPanel.add(refreshBtn);
+        topPanel.add(reloadBtn);
+
+        // 중앙: 4개 캐시 서브탭
+        JTabbedPane cacheTabs = new JTabbedPane(JTabbedPane.TOP);
+        cacheTabs.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+
+        // 테이블 참조 (새로고침용)
+        String[] assetCols = {"EPC (정규화)", "자산번호", "자산명", "부서"};
+        JTable assetTable = createStyledTable(new Object[0][4], assetCols);
+
+        String[] permitCols = {"EPC (정규화)"};
+        JTable permitTable = createStyledTable(new Object[0][1], permitCols);
+
+        String[] tagCacheCols = {"EPC"};
+        JTable tagCacheTable = createStyledTable(new Object[0][1], tagCacheCols);
+
+        String[] alertCacheCols = {"EPC"};
+        JTable alertCacheTable = createStyledTable(new Object[0][1], alertCacheCols);
+
+        cacheTabs.addTab("자산 캐시", new JScrollPane(assetTable));
+        cacheTabs.addTab("반출허용 캐시", new JScrollPane(permitTable));
+        cacheTabs.addTab("태그 DB캐시 (Caffeine)", new JScrollPane(tagCacheTable));
+        cacheTabs.addTab("알림 중복제거 (Caffeine)", new JScrollPane(alertCacheTable));
+
+        // 데이터 로드 Runnable
+        Runnable loadCacheData = () -> {
+            AssetRepository repo = AssetRepository.getInstance();
+
+            // 자산 캐시
+            Map<String, AssetRepository.AssetInfo> assetMap = repo.getAssetMapCopy();
+            List<String[]> assetRows = new ArrayList<>();
+            for (Map.Entry<String, AssetRepository.AssetInfo> entry : assetMap.entrySet()) {
+                AssetRepository.AssetInfo info = entry.getValue();
+                assetRows.add(new String[]{
+                    entry.getKey(),
+                    info.getAssetNumber() != null ? info.getAssetNumber() : "",
+                    info.getAssetName() != null ? info.getAssetName() : "",
+                    info.getDepartment() != null ? info.getDepartment() : ""
+                });
+            }
+            Object[][] aRows = new Object[assetRows.size()][4];
+            for (int i = 0; i < assetRows.size(); i++) aRows[i] = assetRows.get(i);
+            assetTable.setModel(new javax.swing.table.DefaultTableModel(aRows, assetCols) {
+                @Override public boolean isCellEditable(int r, int c) { return false; }
+            });
+
+            // 반출허용 캐시
+            Set<String> permitted = repo.getPermittedEpcsCopy();
+            Object[][] pRows = new Object[permitted.size()][1];
+            int pi = 0;
+            for (String epc : permitted) pRows[pi++] = new Object[]{epc};
+            permitTable.setModel(new javax.swing.table.DefaultTableModel(pRows, permitCols) {
+                @Override public boolean isCellEditable(int r, int c) { return false; }
+            });
+
+            // 태그 DB캐시 (Caffeine)
+            Set<String> tagKeys = tagDataPanel.getDbDedupCacheKeys();
+            Object[][] tRows = new Object[tagKeys.size()][1];
+            int ti = 0;
+            for (String epc : tagKeys) tRows[ti++] = new Object[]{epc};
+            tagCacheTable.setModel(new javax.swing.table.DefaultTableModel(tRows, tagCacheCols) {
+                @Override public boolean isCellEditable(int r, int c) { return false; }
+            });
+
+            // 알림 중복제거 (Caffeine)
+            Set<String> alertKeys = repo.getAlertDedupKeys();
+            Object[][] alRows = new Object[alertKeys.size()][1];
+            int ai = 0;
+            for (String epc : alertKeys) alRows[ai++] = new Object[]{epc};
+            alertCacheTable.setModel(new javax.swing.table.DefaultTableModel(alRows, alertCacheCols) {
+                @Override public boolean isCellEditable(int r, int c) { return false; }
+            });
+
+            // 요약 라벨
+            summaryLabel.setText(String.format(
+                "자산: %d건  |  반출허용: %d건  |  태그 DB캐시: %d건  |  알림캐시: %d건",
+                assetMap.size(), permitted.size(),
+                tagDataPanel.getDbDedupCacheSize(), repo.getAlertDedupSize()));
+        };
+
+        // 버튼 동작
+        refreshBtn.addActionListener(e -> {
+            AssetRepository.getInstance().refreshCache();
+            loadCacheData.run();
+            logPanel.appendLog("Cache manually refreshed");
+        });
+        reloadBtn.addActionListener(e -> loadCacheData.run());
+
+        // 초기 로드
+        loadCacheData.run();
+
+        panel.add(topPanel, BorderLayout.NORTH);
+        panel.add(cacheTabs, BorderLayout.CENTER);
         return panel;
     }
 

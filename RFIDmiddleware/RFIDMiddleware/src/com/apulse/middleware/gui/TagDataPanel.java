@@ -21,9 +21,11 @@ import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 public class TagDataPanel extends JPanel {
@@ -179,6 +181,15 @@ public class TagDataPanel extends JPanel {
         } else {
             return new ArrayList<>(tagList);
         }
+    }
+
+    /** DB 중복제거 캐시(Caffeine) EPC 목록 (조회용) */
+    public Set<String> getDbDedupCacheKeys() {
+        return new HashSet<>(dbDedupCache.asMap().keySet());
+    }
+
+    public long getDbDedupCacheSize() {
+        return dbDedupCache.estimatedSize();
     }
 
     /** 태그 데이터 초기화 */

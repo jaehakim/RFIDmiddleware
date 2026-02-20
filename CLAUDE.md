@@ -185,9 +185,43 @@ RFIDmiddleware/RFIDMiddleware/
 │   │   └── ConfigDialog.java     -- 설정 다이얼로그
 │   └── util/
 │       └── HexUtils.java         -- HEX 변환, 타임스탬프
-├── build.bat
-└── run.bat
+├── build.bat                -- 빌드 스크립트 (Fat JAR 생성)
+├── run.bat                  -- 실행 스크립트 (JAR 실행)
+└── RFIDMiddleware.jar       -- 빌드 산출물 (Fat JAR, ~2.4MB)
 ```
+
+### 빌드 및 실행
+
+#### 빌드 (build.bat)
+```
+build.bat
+  [1/5] 한글 경로 우회를 위한 임시 디렉토리 생성
+  [2/5] 소스/라이브러리 복사
+  [3/5] javac 컴파일 (UTF-8)
+  [4/5] 라이브러리 JAR 4개를 풀어 클래스에 병합 (Fat JAR 준비)
+  [5/5] jar cfm 으로 단일 RFIDMiddleware.jar 생성
+```
+- **산출물**: `RFIDMiddleware.jar` (앱 코드 + 라이브러리 4개 포함)
+- `out/` 디렉토리에 클래스 파일도 생성 (하위 호환)
+
+#### 실행 (run.bat)
+```
+run.bat
+  → RFIDMiddleware.jar + config/ 를 임시 디렉토리에 복사
+  → java -Dfile.encoding=UTF-8 -jar RFIDMiddleware.jar
+  → 종료 시 config/ 변경사항 원본에 복사 (설정 영구 반영)
+```
+
+#### 배포 구성 (최소)
+```
+배포폴더/
+├── RFIDMiddleware.jar    -- 단일 실행 파일
+└── config/
+    ├── readers.cfg       -- 리더기 설정
+    └── database.cfg      -- DB 설정
+```
+- 실행: `java -Dfile.encoding=UTF-8 -jar RFIDMiddleware.jar`
+- JDK/JRE 8 이상 필요
 
 ### 아키텍처 패턴
 - **싱글톤**: DatabaseManager, TagRepository, AssetRepository, WarningLightController

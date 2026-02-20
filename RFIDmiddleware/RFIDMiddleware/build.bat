@@ -38,6 +38,7 @@ javac -encoding UTF-8 -cp "%BUILD_TMP%\libs\FixedReaderLib.jar;%BUILD_TMP%\libs\
   "%BUILD_TMP%\src\com\apulse\middleware\db\TagRepository.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\db\AssetRepository.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\reader\WarningLightController.java" ^
+  "%BUILD_TMP%\src\com\apulse\middleware\api\DashboardHtml.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\api\ApiServer.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\gui\ReaderIconComponent.java" ^
   "%BUILD_TMP%\src\com\apulse\middleware\gui\ReaderStatusPanel.java" ^

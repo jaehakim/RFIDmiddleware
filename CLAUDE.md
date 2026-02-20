@@ -142,7 +142,7 @@ MainFrame()
 
 | 테이블 | 데이터 관리 주체 | 미들웨어 동작 | 시점 |
 |--------|-----------------|--------------|------|
-| **assets** | 외부 시스템 (INSERT/UPDATE/DELETE) | SELECT 조회만 | 시작 시 + 30초마다 |
+| **assets** | 외부 시스템 + API (INSERT/UPDATE) | SELECT 조회 + INSERT/UPDATE | 시작 시 + 30초마다 |
 | **export_permissions** | 외부 시스템 (INSERT/UPDATE/DELETE) | SELECT 조회만 (유효기간 체크) | 시작 시 + 30초마다 |
 | **export_alerts** | **미들웨어** (INSERT) | 미허가 반출 감지 시 기록 | 태그 감지 시 (30초 중복제거) |
 | **tag_reads** | **미들웨어** (INSERT) | 태그 읽기 이력 기록 | 태그 감지 시 (캐시 MISS만) |
@@ -254,7 +254,7 @@ run.bat
 | read_time | DATETIME NOT NULL | 태그 읽기 시각 |
 | created_at | DATETIME DEFAULT NOW | 기록일시 |
 
-### assets (자산 마스터 - 외부 관리)
+### assets (자산 마스터 - 외부 관리 + API)
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | id | BIGINT PK AI | 자산 ID |
@@ -262,6 +262,7 @@ run.bat
 | epc | VARCHAR(128) NOT NULL UNIQUE | RFID EPC 코드 |
 | asset_name | VARCHAR(128) | 자산명 |
 | department | VARCHAR(64) | 관리 부서 |
+| possession | TINYINT(1) DEFAULT 1 | 보유여부 (1=보유, 0=미보유) |
 | created_at | DATETIME DEFAULT NOW | 등록일시 |
 
 ### export_permissions (반출허용 목록 - 외부 관리)
@@ -399,8 +400,12 @@ Reader-01,192.168.0.196,20058,1,0,30,30,30,30,500
 | Method | URL | 설명 |
 |--------|-----|------|
 | PUT | `/api/readers/{name}` | 리더기 설정 수정 (ip, port, buzzer, warningLight, antennaPower1~4, dwellTime) |
+| POST | `/api/assets` | 자산 추가 (assetNumber, epc, assetName, department, possession) |
+| PUT | `/api/assets/{id}` | 자산 수정 (assetNumber, epc, assetName, department, possession - 일부 필드만 가능) |
 | POST | `/api/export-permissions` | 반출허용 추가 (epc, permitStart, permitEnd, reason) |
 | DELETE | `/api/export-permissions/{id}` | 반출허용 삭제 (id로 삭제) |
+| GET | `/api/mask` | EPC Mask 조회 |
+| PUT | `/api/mask` | EPC Mask 설정 (mask) |
 
 ### 응답 형식
 
@@ -431,6 +436,24 @@ curl "http://localhost:18080/api/export-alerts?from=2026-01-01%2000:00:00&to=202
 curl -X PUT http://localhost:18080/api/readers/Reader1 \
   -H "Content-Type: application/json" \
   -d '{"ip":"192.168.0.100","port":14150,"buzzer":true,"warningLight":true,"dwellTime":500}'
+
+# 자산 추가
+curl -X POST http://localhost:18080/api/assets \
+  -H "Content-Type: application/json" \
+  -d '{"assetNumber":"A001","epc":"0420100420250910000006","assetName":"모니터","department":"IT부","possession":1}'
+
+# 자산 수정
+curl -X PUT http://localhost:18080/api/assets/1 \
+  -H "Content-Type: application/json" \
+  -d '{"assetName":"모니터 27인치","department":"개발팀","possession":0}'
+
+# EPC Mask 조회
+curl http://localhost:18080/api/mask
+
+# EPC Mask 설정
+curl -X PUT http://localhost:18080/api/mask \
+  -H "Content-Type: application/json" \
+  -d '{"mask":"0420"}'
 
 # 반출허용 추가
 curl -X POST http://localhost:18080/api/export-permissions \
@@ -469,8 +492,12 @@ curl -X POST http://localhost:18080/api/control/stop-inventory
   ├── POST /api/control/stop-inventory → ReaderManager.stopInventoryAll() → JSON 응답
   │
   ├── PUT /api/readers/{name} ──→ ReaderConfig 수정 → saveToFile() → JSON 응답
+  ├── POST /api/assets ──────────→ DB INSERT → refreshCache() → JSON 응답
+  ├── PUT /api/assets/{id} ─────→ DB UPDATE → refreshCache() → JSON 응답
   ├── POST /api/export-permissions → DB INSERT → refreshCache() → JSON 응답
-  └── DELETE /api/export-permissions/{id} → DB DELETE → refreshCache() → JSON 응답
+  ├── DELETE /api/export-permissions/{id} → DB DELETE → refreshCache() → JSON 응답
+  ├── GET /api/mask ─────────────→ ReaderConfig.getEpcMask() → JSON 응답
+  └── PUT /api/mask ─────────────→ ReaderConfig.setEpcMask() → saveToFile() → JSON 응답
 ```
 
 ### 구현 파일

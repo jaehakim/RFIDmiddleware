@@ -3,6 +3,7 @@ package com.apulse.middleware.api;
 import com.apulse.middleware.config.ReaderConfig;
 import com.apulse.middleware.db.AssetRepository;
 import com.apulse.middleware.db.DatabaseManager;
+import com.apulse.middleware.db.TagRepository;
 import com.apulse.middleware.reader.ReaderConnection;
 import com.apulse.middleware.reader.ReaderManager;
 import com.apulse.middleware.util.AppLogger;
@@ -40,8 +41,11 @@ public class ApiServer {
         server.createContext("/api/export-permissions", new ExportPermissionsHandler());
         server.createContext("/api/export-alerts", new ExportAlertsHandler());
         server.createContext("/api/control", new ControlHandler());
+        server.createContext("/api/tags/recent", new RecentTagsHandler());
+        server.createContext("/api/mask", new MaskHandler());
         server.createContext("/swagger", new SwaggerUiHandler());
         server.createContext("/api/openapi.json", new OpenApiHandler());
+        server.createContext("/", new DashboardHandler());
     }
 
     public void start() {
@@ -280,37 +284,126 @@ public class ApiServer {
         }
     }
 
-    /** GET /api/assets */
+    /** GET /api/assets, POST /api/assets, PUT /api/assets/{id} */
     private class AssetsHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             try {
-                if ("OPTIONS".equals(exchange.getRequestMethod())) {
+                String method = exchange.getRequestMethod();
+
+                if ("OPTIONS".equals(method)) {
                     sendJson(exchange, 204, "");
                     return;
                 }
-                if (!"GET".equals(exchange.getRequestMethod())) {
-                    sendError(exchange, 405, "Method not allowed");
-                    return;
-                }
 
-                List<String[]> assets = AssetRepository.getInstance().queryAssets();
-                StringBuilder sb = new StringBuilder("[");
-                for (int i = 0; i < assets.size(); i++) {
-                    if (i > 0) sb.append(",");
-                    String[] row = assets.get(i);
-                    sb.append("{")
-                        .append("\"assetNumber\":").append(toJsonString(row[0])).append(",")
-                        .append("\"epc\":").append(toJsonString(row[1])).append(",")
-                        .append("\"assetName\":").append(toJsonString(row[2])).append(",")
-                        .append("\"department\":").append(toJsonString(row[3])).append(",")
-                        .append("\"createdAt\":").append(toJsonString(row[4]))
-                        .append("}");
+                String path = exchange.getRequestURI().getPath();
+                String subPath = path.length() > "/api/assets".length()
+                    ? path.substring("/api/assets/".length()) : null;
+
+                if ("GET".equals(method) && subPath == null) {
+                    handleGetAssets(exchange);
+                } else if ("POST".equals(method) && subPath == null) {
+                    handlePostAsset(exchange);
+                } else if ("PUT".equals(method) && subPath != null) {
+                    handlePutAsset(exchange, subPath);
+                } else {
+                    sendError(exchange, 405, "Method not allowed");
                 }
-                sb.append("]");
-                sendOk(exchange, sb.toString());
             } catch (Exception e) {
                 sendError(exchange, 500, e.getMessage());
+            }
+        }
+
+        private void handleGetAssets(HttpExchange exchange) throws IOException {
+            List<String[]> assets = AssetRepository.getInstance().queryAssets();
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < assets.size(); i++) {
+                if (i > 0) sb.append(",");
+                String[] row = assets.get(i);
+                sb.append("{")
+                    .append("\"assetNumber\":").append(toJsonString(row[0])).append(",")
+                    .append("\"epc\":").append(toJsonString(row[1])).append(",")
+                    .append("\"assetName\":").append(toJsonString(row[2])).append(",")
+                    .append("\"department\":").append(toJsonString(row[3])).append(",")
+                    .append("\"createdAt\":").append(toJsonString(row[4])).append(",")
+                    .append("\"possession\":").append("보유".equals(row[5])).append(",")
+                    .append("\"id\":").append(row[6])
+                    .append("}");
+            }
+            sb.append("]");
+            sendOk(exchange, sb.toString());
+        }
+
+        private void handlePostAsset(HttpExchange exchange) throws IOException {
+            String body = readRequestBody(exchange);
+            Map<String, String> fields = parseJsonFields(body);
+
+            String assetNumber = fields.get("assetNumber");
+            String epc = fields.get("epc");
+            String assetName = fields.get("assetName");
+            String department = fields.get("department");
+            String possessionStr = fields.get("possession");
+
+            if (assetNumber == null || assetNumber.isEmpty()) {
+                sendError(exchange, 400, "assetNumber is required");
+                return;
+            }
+            if (epc == null || epc.isEmpty()) {
+                sendError(exchange, 400, "epc is required");
+                return;
+            }
+
+            int possession = 1;
+            if (possessionStr != null) {
+                try {
+                    possession = Integer.parseInt(possessionStr);
+                } catch (NumberFormatException e) {
+                    possession = Boolean.parseBoolean(possessionStr) ? 1 : 0;
+                }
+            }
+
+            boolean success = AssetRepository.getInstance().insertAsset(assetNumber, epc, assetName, department, possession);
+            if (success) {
+                AssetRepository.getInstance().refreshCache();
+                sendOk(exchange, "{\"message\":\"Asset added\"}");
+            } else {
+                sendError(exchange, 500, "Failed to insert asset");
+            }
+        }
+
+        private void handlePutAsset(HttpExchange exchange, String idStr) throws IOException {
+            long id;
+            try {
+                id = Long.parseLong(idStr);
+            } catch (NumberFormatException e) {
+                sendError(exchange, 400, "Invalid id: " + idStr);
+                return;
+            }
+
+            String body = readRequestBody(exchange);
+            Map<String, String> fields = parseJsonFields(body);
+
+            String assetNumber = fields.get("assetNumber");
+            String epc = fields.get("epc");
+            String assetName = fields.get("assetName");
+            String department = fields.get("department");
+            String possessionStr = fields.get("possession");
+
+            Integer possession = null;
+            if (possessionStr != null) {
+                try {
+                    possession = Integer.parseInt(possessionStr);
+                } catch (NumberFormatException e) {
+                    possession = Boolean.parseBoolean(possessionStr) ? 1 : 0;
+                }
+            }
+
+            boolean success = AssetRepository.getInstance().updateAsset(id, assetNumber, epc, assetName, department, possession);
+            if (success) {
+                AssetRepository.getInstance().refreshCache();
+                sendOk(exchange, "{\"message\":\"Asset updated\"}");
+            } else {
+                sendError(exchange, 500, "Failed to update asset (id=" + id + ")");
             }
         }
     }
@@ -358,7 +451,8 @@ public class ApiServer {
                     .append("\"permitStart\":").append(toJsonString(row[3])).append(",")
                     .append("\"permitEnd\":").append(toJsonString(row[4])).append(",")
                     .append("\"reason\":").append(toJsonString(row[5])).append(",")
-                    .append("\"status\":").append(toJsonString(row[6]))
+                    .append("\"status\":").append(toJsonString(row[6])).append(",")
+                    .append("\"id\":").append(row.length > 7 ? row[7] : "null")
                     .append("}");
             }
             sb.append("]");
@@ -585,13 +679,42 @@ public class ApiServer {
                 + "      }\n"
                 + "    },\n"
 
-                // GET /api/assets
+                // GET/POST /api/assets
                 + "    \"/api/assets\": {\n"
                 + "      \"get\": {\n"
                 + "        \"tags\": [\"Assets\"],\n"
                 + "        \"summary\": \"\\uc790\\uc0b0 \\ud14c\\uc774\\ube14 \\uc870\\ud68c\",\n"
                 + "        \"responses\": {\n"
                 + "          \"200\": {\"description\": \"\\uc131\\uacf5\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}}\n"
+                + "        }\n"
+                + "      },\n"
+                + "      \"post\": {\n"
+                + "        \"tags\": [\"Assets\"],\n"
+                + "        \"summary\": \"\\uc790\\uc0b0 \\ucd94\\uac00\",\n"
+                + "        \"requestBody\": {\n"
+                + "          \"required\": true,\n"
+                + "          \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/AssetCreateRequest\"}}}\n"
+                + "        },\n"
+                + "        \"responses\": {\n"
+                + "          \"200\": {\"description\": \"\\uc131\\uacf5\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}},\n"
+                + "          \"400\": {\"description\": \"\\ud544\\uc218 \\ud544\\ub4dc \\ub204\\ub77d\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/ErrorResponse\"}}}}\n"
+                + "        }\n"
+                + "      }\n"
+                + "    },\n"
+
+                // PUT /api/assets/{id}
+                + "    \"/api/assets/{id}\": {\n"
+                + "      \"put\": {\n"
+                + "        \"tags\": [\"Assets\"],\n"
+                + "        \"summary\": \"\\uc790\\uc0b0 \\uc218\\uc815\",\n"
+                + "        \"parameters\": [{\"name\": \"id\", \"in\": \"path\", \"required\": true, \"schema\": {\"type\": \"integer\", \"format\": \"int64\"}, \"description\": \"\\uc790\\uc0b0 ID\"}],\n"
+                + "        \"requestBody\": {\n"
+                + "          \"required\": true,\n"
+                + "          \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/AssetUpdateRequest\"}}}\n"
+                + "        },\n"
+                + "        \"responses\": {\n"
+                + "          \"200\": {\"description\": \"\\uc131\\uacf5\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}},\n"
+                + "          \"400\": {\"description\": \"\\uc798\\ubabb\\ub41c ID\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/ErrorResponse\"}}}}\n"
                 + "        }\n"
                 + "      }\n"
                 + "    },\n"
@@ -690,6 +813,28 @@ public class ApiServer {
                 + "          \"400\": {\"description\": \"\\ud544\\uc218 \\ud30c\\ub77c\\ubbf8\\ud130 \\ub204\\ub77d\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/ErrorResponse\"}}}}\n"
                 + "        }\n"
                 + "      }\n"
+                + "    },\n"
+
+                // GET/PUT /api/mask
+                + "    \"/api/mask\": {\n"
+                + "      \"get\": {\n"
+                + "        \"tags\": [\"Settings\"],\n"
+                + "        \"summary\": \"EPC Mask \\uc870\\ud68c\",\n"
+                + "        \"responses\": {\n"
+                + "          \"200\": {\"description\": \"\\uc131\\uacf5\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}}\n"
+                + "        }\n"
+                + "      },\n"
+                + "      \"put\": {\n"
+                + "        \"tags\": [\"Settings\"],\n"
+                + "        \"summary\": \"EPC Mask \\uc124\\uc815\",\n"
+                + "        \"requestBody\": {\n"
+                + "          \"required\": true,\n"
+                + "          \"content\": {\"application/json\": {\"schema\": {\"type\": \"object\", \"properties\": {\"mask\": {\"type\": \"string\", \"example\": \"0420\"}}}}}\n"
+                + "        },\n"
+                + "        \"responses\": {\n"
+                + "          \"200\": {\"description\": \"\\uc131\\uacf5\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}}\n"
+                + "        }\n"
+                + "      }\n"
                 + "    }\n"
 
                 + "  },\n"
@@ -738,6 +883,29 @@ public class ApiServer {
                 + "          \"permitEnd\": {\"type\": \"string\", \"example\": \"2026-12-31 23:59:59\", \"description\": \"\\ubc18\\ucd9c\\ud5c8\\uc6a9 \\uc885\\ub8cc\\uc77c\\uc2dc\"},\n"
                 + "          \"reason\": {\"type\": \"string\", \"example\": \"\\uc5c5\\ubb34\\uc6a9 \\ubc18\\ucd9c\", \"description\": \"\\ubc18\\ucd9c \\uc0ac\\uc720\"}\n"
                 + "        }\n"
+                + "      },\n"
+
+                + "      \"AssetCreateRequest\": {\n"
+                + "        \"type\": \"object\",\n"
+                + "        \"required\": [\"assetNumber\", \"epc\"],\n"
+                + "        \"properties\": {\n"
+                + "          \"assetNumber\": {\"type\": \"string\", \"example\": \"A001\"},\n"
+                + "          \"epc\": {\"type\": \"string\", \"example\": \"0420100420250910000006\"},\n"
+                + "          \"assetName\": {\"type\": \"string\", \"example\": \"\\ubaa8\\ub2c8\\ud130\"},\n"
+                + "          \"department\": {\"type\": \"string\", \"example\": \"IT\\ubd80\"},\n"
+                + "          \"possession\": {\"type\": \"integer\", \"example\": 1, \"description\": \"1=\\ubcf4\\uc720, 0=\\ubbf8\\ubcf4\\uc720\"}\n"
+                + "        }\n"
+                + "      },\n"
+
+                + "      \"AssetUpdateRequest\": {\n"
+                + "        \"type\": \"object\",\n"
+                + "        \"properties\": {\n"
+                + "          \"assetNumber\": {\"type\": \"string\", \"example\": \"A001\"},\n"
+                + "          \"epc\": {\"type\": \"string\", \"example\": \"0420100420250910000006\"},\n"
+                + "          \"assetName\": {\"type\": \"string\", \"example\": \"\\ubaa8\\ub2c8\\ud130 27\\uc778\\uce58\"},\n"
+                + "          \"department\": {\"type\": \"string\", \"example\": \"\\uac1c\\ubc1c\\ud300\"},\n"
+                + "          \"possession\": {\"type\": \"integer\", \"example\": 0, \"description\": \"1=\\ubcf4\\uc720, 0=\\ubbf8\\ubcf4\\uc720\"}\n"
+                + "        }\n"
                 + "      }\n"
 
                 + "    }\n"
@@ -747,6 +915,102 @@ public class ApiServer {
             byte[] bytes = spec.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
             exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+            exchange.sendResponseHeaders(200, bytes.length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(bytes);
+            }
+        }
+    }
+
+    /** GET /api/mask - get EPC mask; PUT /api/mask - set EPC mask */
+    private class MaskHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            try {
+                String method = exchange.getRequestMethod();
+                if ("OPTIONS".equals(method)) {
+                    sendJson(exchange, 204, "");
+                    return;
+                }
+                if ("GET".equals(method)) {
+                    sendOk(exchange, "{\"mask\":" + toJsonString(ReaderConfig.getEpcMask()) + "}");
+                } else if ("PUT".equals(method)) {
+                    String body = readRequestBody(exchange);
+                    Map<String, String> fields = parseJsonFields(body);
+                    String mask = fields.get("mask");
+                    ReaderConfig.setEpcMask(mask != null ? mask : "");
+                    // Save to config file
+                    List<ReaderConfig> allConfigs = new ArrayList<>();
+                    for (ReaderConnection conn : readerManager.getConnections()) {
+                        allConfigs.add(conn.getConfig());
+                    }
+                    ReaderConfig.saveToFile(configFile, allConfigs);
+                    sendOk(exchange, "{\"mask\":" + toJsonString(ReaderConfig.getEpcMask())
+                        + ",\"message\":\"Mask updated\"}");
+                } else {
+                    sendError(exchange, 405, "Method not allowed");
+                }
+            } catch (Exception e) {
+                sendError(exchange, 500, e.getMessage());
+            }
+        }
+    }
+
+    /** GET /api/tags/recent - recent tag data; DELETE /api/tags/recent - clear */
+    private class RecentTagsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            try {
+                String method = exchange.getRequestMethod();
+                if ("OPTIONS".equals(method)) {
+                    sendJson(exchange, 204, "");
+                    return;
+                }
+                if ("DELETE".equals(method)) {
+                    TagRepository.getInstance().clearRecentTags();
+                    sendOk(exchange, "{\"message\":\"Cleared\"}");
+                    return;
+                }
+                if (!"GET".equals(method)) {
+                    sendError(exchange, 405, "Method not allowed");
+                    return;
+                }
+
+                List<TagRepository.RecentTag> tags = TagRepository.getInstance().getRecentTags();
+                long seq = TagRepository.getInstance().getRecentTagSeq();
+                StringBuilder sb = new StringBuilder("{\"seq\":").append(seq).append(",\"tags\":[");
+                for (int i = 0; i < tags.size(); i++) {
+                    if (i > 0) sb.append(",");
+                    TagRepository.RecentTag t = tags.get(i);
+                    sb.append("{")
+                        .append("\"time\":").append(toJsonString(t.time)).append(",")
+                        .append("\"readerName\":").append(toJsonString(t.readerName)).append(",")
+                        .append("\"epc\":").append(toJsonString(t.epc)).append(",")
+                        .append("\"rssi\":").append(t.rssi).append(",")
+                        .append("\"assetNumber\":").append(toJsonString(t.assetNumber)).append(",")
+                        .append("\"assetName\":").append(toJsonString(t.assetName)).append(",")
+                        .append("\"department\":").append(toJsonString(t.department)).append(",")
+                        .append("\"status\":").append(toJsonString(t.status))
+                        .append("}");
+                }
+                sb.append("]}");
+                sendOk(exchange, sb.toString());
+            } catch (Exception e) {
+                sendError(exchange, 500, e.getMessage());
+            }
+        }
+    }
+
+    /** GET / - Dashboard HTML UI */
+    private class DashboardHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (!"/".equals(exchange.getRequestURI().getPath())) {
+                sendError(exchange, 404, "Not found");
+                return;
+            }
+            byte[] bytes = DashboardHtml.getHtml().getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
             exchange.sendResponseHeaders(200, bytes.length);
             try (OutputStream os = exchange.getResponseBody()) {
                 os.write(bytes);

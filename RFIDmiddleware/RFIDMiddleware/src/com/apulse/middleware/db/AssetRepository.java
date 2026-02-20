@@ -81,7 +81,7 @@ public class AssetRepository {
             // assets 전체 로드 (EPC 정규화하여 캐시 키로 사용)
             ConcurrentHashMap<String, AssetInfo> newAssetMap = new ConcurrentHashMap<>();
             try (PreparedStatement pstmt = conn.prepareStatement(
-                    "SELECT epc, asset_number, asset_name, department FROM assets");
+                    "SELECT epc, asset_number, asset_name, department, possession FROM assets");
                  ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
                     String rawEpc = rs.getString("epc");
@@ -90,7 +90,8 @@ public class AssetRepository {
                         normalizedEpc,
                         rs.getString("asset_number"),
                         rs.getString("asset_name"),
-                        rs.getString("department")
+                        rs.getString("department"),
+                        rs.getInt("possession") == 1
                     ));
                 }
             }
@@ -206,7 +207,7 @@ public class AssetRepository {
         if (conn == null) return results;
 
         try (PreparedStatement pstmt = conn.prepareStatement(
-                "SELECT asset_number, epc, asset_name, department, created_at FROM assets ORDER BY asset_number");
+                "SELECT id, asset_number, epc, asset_name, department, possession, created_at FROM assets ORDER BY asset_number");
              ResultSet rs = pstmt.executeQuery()) {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             while (rs.next()) {
@@ -216,13 +217,67 @@ public class AssetRepository {
                     rs.getString("epc"),
                     rs.getString("asset_name") != null ? rs.getString("asset_name") : "",
                     rs.getString("department") != null ? rs.getString("department") : "",
-                    ts != null ? sdf.format(ts) : ""
+                    ts != null ? sdf.format(ts) : "",
+                    rs.getInt("possession") == 1 ? "보유" : "미보유",
+                    String.valueOf(rs.getLong("id"))
                 });
             }
         } catch (Exception e) {
             AppLogger.error("AssetRepository", "Query assets failed: " + e.getMessage());
         }
         return results;
+    }
+
+    /** 자산 추가 */
+    public boolean insertAsset(String assetNumber, String epc, String assetName, String department, int possession) {
+        Connection conn = DatabaseManager.getInstance().getConnection();
+        if (conn == null) return false;
+
+        String sql = "INSERT INTO assets (asset_number, epc, asset_name, department, possession) VALUES (?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, assetNumber);
+            pstmt.setString(2, epc);
+            pstmt.setString(3, assetName);
+            pstmt.setString(4, department);
+            pstmt.setInt(5, possession);
+            pstmt.executeUpdate();
+            return true;
+        } catch (Exception e) {
+            AppLogger.error("AssetRepository", "Insert asset failed: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /** 자산 수정 */
+    public boolean updateAsset(long id, String assetNumber, String epc, String assetName, String department, Integer possession) {
+        Connection conn = DatabaseManager.getInstance().getConnection();
+        if (conn == null) return false;
+
+        // 동적 UPDATE 쿼리 생성 (전달된 필드만 수정)
+        List<String> setClauses = new ArrayList<>();
+        List<Object> params = new ArrayList<>();
+        if (assetNumber != null) { setClauses.add("asset_number = ?"); params.add(assetNumber); }
+        if (epc != null) { setClauses.add("epc = ?"); params.add(epc); }
+        if (assetName != null) { setClauses.add("asset_name = ?"); params.add(assetName); }
+        if (department != null) { setClauses.add("department = ?"); params.add(department); }
+        if (possession != null) { setClauses.add("possession = ?"); params.add(possession); }
+
+        if (setClauses.isEmpty()) return false;
+
+        String sql = "UPDATE assets SET " + String.join(", ", setClauses) + " WHERE id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            for (int i = 0; i < params.size(); i++) {
+                Object p = params.get(i);
+                if (p instanceof String) pstmt.setString(i + 1, (String) p);
+                else if (p instanceof Integer) pstmt.setInt(i + 1, (Integer) p);
+            }
+            pstmt.setLong(params.size() + 1, id);
+            int affected = pstmt.executeUpdate();
+            return affected > 0;
+        } catch (Exception e) {
+            AppLogger.error("AssetRepository", "Update asset failed: " + e.getMessage());
+            return false;
+        }
     }
 
     /** 반출허용 목록 전체 조회 */
@@ -232,7 +287,7 @@ public class AssetRepository {
         if (conn == null) return results;
 
         try (PreparedStatement pstmt = conn.prepareStatement(
-                "SELECT ep.epc, a.asset_number, a.asset_name, ep.permit_start, ep.permit_end, ep.reason, "
+                "SELECT ep.id, ep.epc, a.asset_number, a.asset_name, ep.permit_start, ep.permit_end, ep.reason, "
                 + "CASE WHEN ep.permit_start <= NOW() AND ep.permit_end >= NOW() THEN '유효' ELSE '만료' END AS status "
                 + "FROM export_permissions ep LEFT JOIN assets a ON ep.epc = a.epc "
                 + "ORDER BY ep.permit_end DESC");
@@ -248,7 +303,8 @@ public class AssetRepository {
                     start != null ? sdf.format(start) : "",
                     end != null ? sdf.format(end) : "",
                     rs.getString("reason") != null ? rs.getString("reason") : "",
-                    rs.getString("status")
+                    rs.getString("status"),
+                    String.valueOf(rs.getLong("id"))
                 });
             }
         } catch (Exception e) {
@@ -330,17 +386,20 @@ public class AssetRepository {
         private final String assetNumber;
         private final String assetName;
         private final String department;
+        private final boolean possession;
 
-        public AssetInfo(String epc, String assetNumber, String assetName, String department) {
+        public AssetInfo(String epc, String assetNumber, String assetName, String department, boolean possession) {
             this.epc = epc;
             this.assetNumber = assetNumber;
             this.assetName = assetName;
             this.department = department;
+            this.possession = possession;
         }
 
         public String getEpc() { return epc; }
         public String getAssetNumber() { return assetNumber; }
         public String getAssetName() { return assetName; }
         public String getDepartment() { return department; }
+        public boolean isPossession() { return possession; }
     }
 }

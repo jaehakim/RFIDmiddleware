@@ -246,10 +246,15 @@ public class MainFrame extends JFrame {
                     connection.getConfig().getName(), epc, rssi,
                     assetNumber, assetName, department, finalStatus);
                 if (isNew) {
+                    String readTime = HexUtils.nowShort();
                     // 캐시 MISS → DB 저장
                     TagRepository.getInstance().insertTagRead(
                         epc, connection.getConfig().getName(),
-                        rssi, HexUtils.nowShort());
+                        rssi, readTime);
+                    // 최근 태그 버퍼에 추가 (대시보드 실시간 표시용)
+                    TagRepository.getInstance().addRecentTag(
+                        readTime, connection.getConfig().getName(), epc, rssi,
+                        assetNumber, assetName, department, finalStatus);
                 }
 
                 // 미허가 반출 감지 → 경광등 + DB 기록 + 로그
@@ -385,7 +390,7 @@ public class MainFrame extends JFrame {
             + "<tr style='background:#E8E8E8;'>"
             +   "<th>테이블</th><th>관리 주체</th><th>미들웨어 동작</th><th>시점</th></tr>"
             + "<tr><td><b>assets</b><br>(자산 마스터)</td>"
-            +   "<td>외부 시스템</td><td>SELECT 조회</td>"
+            +   "<td>외부 시스템<br>+ API</td><td>SELECT 조회<br>INSERT/UPDATE</td>"
             +   "<td>시작 시 + 30초마다<br>메모리 캐시 갱신</td></tr>"
             + "<tr><td><b>export_permissions</b><br>(반출허용 목록)</td>"
             +   "<td>외부 시스템</td><td>SELECT 조회<br>(유효기간 체크)</td>"
@@ -432,8 +437,12 @@ public class MainFrame extends JFrame {
             + "<table cellpadding='3' cellspacing='0' border='1' style='border-collapse:collapse;'>"
             + "<tr style='background:#E8E8E8;'><th>Method</th><th>URL</th><th>설명</th></tr>"
             + "<tr><td>PUT</td><td><code>/api/readers/{name}</code></td><td>리더기 설정 수정</td></tr>"
+            + "<tr><td>POST</td><td><code>/api/assets</code></td><td>자산 추가</td></tr>"
+            + "<tr><td>PUT</td><td><code>/api/assets/{id}</code></td><td>자산 수정</td></tr>"
             + "<tr><td>POST</td><td><code>/api/export-permissions</code></td><td>반출허용 추가</td></tr>"
             + "<tr><td>DELETE</td><td><code>/api/export-permissions/{id}</code></td><td>반출허용 삭제</td></tr>"
+            + "<tr><td>GET</td><td><code>/api/mask</code></td><td>EPC Mask 조회</td></tr>"
+            + "<tr><td>PUT</td><td><code>/api/mask</code></td><td>EPC Mask 설정</td></tr>"
             + "</table>"
 
             + "<h3>응답 형식 (JSON)</h3>"
@@ -511,11 +520,15 @@ public class MainFrame extends JFrame {
     /** 자산 목록 탭 생성 */
     private JPanel createAssetsTab() {
         JPanel panel = new JPanel(new BorderLayout());
-        String[] cols = {"자산번호", "EPC", "자산명", "부서", "등록일시"};
+        String[] cols = {"자산번호", "EPC", "자산명", "부서", "등록일시", "보유여부"};
         List<String[]> data = AssetRepository.getInstance().queryAssets();
 
+        // queryAssets returns: [assetNumber, epc, assetName, department, createdAt, possession, id]
         Object[][] rows = new Object[data.size()][cols.length];
-        for (int i = 0; i < data.size(); i++) rows[i] = data.get(i);
+        for (int i = 0; i < data.size(); i++) {
+            String[] row = data.get(i);
+            rows[i] = new String[] { row[0], row[1], row[2], row[3], row[4], row[5] };
+        }
 
         JTable table = createStyledTable(rows, cols);
         table.getColumnModel().getColumn(0).setPreferredWidth(80);
@@ -523,6 +536,7 @@ public class MainFrame extends JFrame {
         table.getColumnModel().getColumn(2).setPreferredWidth(120);
         table.getColumnModel().getColumn(3).setPreferredWidth(80);
         table.getColumnModel().getColumn(4).setPreferredWidth(130);
+        table.getColumnModel().getColumn(5).setPreferredWidth(60);
 
         JLabel countLabel = new JLabel("  총 " + data.size() + "건");
         countLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 11));

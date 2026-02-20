@@ -12,15 +12,20 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class TagRepository {
     private static final TagRepository INSTANCE = new TagRepository();
     private static final int BATCH_SIZE = 50;
     private static final long BATCH_INTERVAL_MS = 500;
+    private static final int RECENT_TAG_MAX = 200;
 
     private final BlockingQueue<TagRecord> queue = new LinkedBlockingQueue<>();
+    private final ConcurrentLinkedDeque<RecentTag> recentTags = new ConcurrentLinkedDeque<>();
+    private final AtomicLong recentTagSeq = new AtomicLong(0);
     private Thread writerThread;
     private volatile boolean running = false;
 
@@ -143,6 +148,55 @@ public class TagRepository {
             }
         }
         AppLogger.info("TagRepository", "Shutdown complete");
+    }
+
+    // --- Recent tag buffer (for dashboard real-time view) ---
+
+    public void addRecentTag(String time, String readerName, String epc, int rssi,
+                             String assetNumber, String assetName, String department, String status) {
+        long seq = recentTagSeq.incrementAndGet();
+        recentTags.addFirst(new RecentTag(seq, time, readerName, epc, rssi,
+                assetNumber, assetName, department, status));
+        while (recentTags.size() > RECENT_TAG_MAX) {
+            recentTags.pollLast();
+        }
+    }
+
+    public List<RecentTag> getRecentTags() {
+        return new ArrayList<>(recentTags);
+    }
+
+    public long getRecentTagSeq() {
+        return recentTagSeq.get();
+    }
+
+    public void clearRecentTags() {
+        recentTags.clear();
+    }
+
+    public static class RecentTag {
+        public final long seq;
+        public final String time;
+        public final String readerName;
+        public final String epc;
+        public final int rssi;
+        public final String assetNumber;
+        public final String assetName;
+        public final String department;
+        public final String status;
+
+        RecentTag(long seq, String time, String readerName, String epc, int rssi,
+                  String assetNumber, String assetName, String department, String status) {
+            this.seq = seq;
+            this.time = time;
+            this.readerName = readerName;
+            this.epc = epc;
+            this.rssi = rssi;
+            this.assetNumber = assetNumber;
+            this.assetName = assetName;
+            this.department = department;
+            this.status = status;
+        }
     }
 
     private static class TagRecord {

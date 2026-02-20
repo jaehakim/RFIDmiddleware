@@ -73,6 +73,7 @@ public class DatabaseManager {
                 + "epc VARCHAR(128) NOT NULL, "
                 + "asset_name VARCHAR(128), "
                 + "department VARCHAR(64), "
+                + "possession TINYINT(1) DEFAULT 1, "
                 + "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
                 + "UNIQUE KEY uk_epc (epc), "
                 + "INDEX idx_asset_number (asset_number)"
@@ -107,6 +108,12 @@ public class DatabaseManager {
             for (int i = 0; i < sqls.length; i++) {
                 stmt.execute(sqls[i]);
                 AppLogger.info("DatabaseManager", "Table '" + tableNames[i] + "' ready");
+            }
+            // 기존 assets 테이블에 possession 컬럼이 없으면 추가
+            try {
+                stmt.execute("ALTER TABLE assets ADD COLUMN IF NOT EXISTS possession TINYINT(1) DEFAULT 1");
+            } catch (Exception ignore) {
+                // 이미 존재하거나 지원하지 않는 경우 무시
             }
         } catch (Exception e) {
             AppLogger.error("DatabaseManager", "Create table failed: " + e.getMessage());

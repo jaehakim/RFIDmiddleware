@@ -21,6 +21,7 @@ public class ReaderConfig {
     private boolean warningLightEnabled = false;
     private int[] antennaPowers = {30, 30, 30, 30};
     private int dwellTime = 500;
+    private boolean beepEnabled = true;
 
     public ReaderConfig(String name, String ip, int port) {
         this.name = name;
@@ -35,6 +36,7 @@ public class ReaderConfig {
     public boolean isWarningLightEnabled() { return warningLightEnabled; }
     public int[] getAntennaPowers() { return antennaPowers; }
     public int getDwellTime() { return dwellTime; }
+    public boolean isBeepEnabled() { return beepEnabled; }
 
     public void setName(String name) { this.name = name; }
     public void setIp(String ip) { this.ip = ip; }
@@ -43,6 +45,7 @@ public class ReaderConfig {
     public void setWarningLightEnabled(boolean warningLightEnabled) { this.warningLightEnabled = warningLightEnabled; }
     public void setAntennaPowers(int[] antennaPowers) { this.antennaPowers = antennaPowers; }
     public void setDwellTime(int dwellTime) { this.dwellTime = dwellTime; }
+    public void setBeepEnabled(boolean beepEnabled) { this.beepEnabled = beepEnabled; }
 
     public String getConnectString() {
         return String.format("CommType=NET;RemoteIp=%s;RemotePort=%d", ip, port);
@@ -55,8 +58,8 @@ public class ReaderConfig {
 
     /**
      * 설정 파일에서 리더기 목록 로드.
-     * CSV 포맷: 이름,IP,Port[,부저,경광등,출력1,출력2,출력3,출력4,드웰시간]
-     * 뒤 7개 필드는 선택적 (하위 호환)
+     * CSV 포맷: 이름,IP,Port[,부저,경광등,출력1,출력2,출력3,출력4,드웰시간[,비프음]]
+     * 뒤 8개 필드는 선택적 (하위 호환)
      */
     public static List<ReaderConfig> loadFromFile(String filePath) {
         List<ReaderConfig> configs = new ArrayList<>();
@@ -88,7 +91,7 @@ public class ReaderConfig {
 
                     // 확장 필드 (하위 호환)
                     if (parts.length >= 10) {
-                        // 새 포맷: 이름,IP,Port,부저,경광등,출력1,출력2,출력3,출력4,드웰시간
+                        // 새 포맷: 이름,IP,Port,부저,경광등,출력1,출력2,출력3,출력4,드웰시간[,비프음]
                         try {
                             cfg.buzzerEnabled = "1".equals(parts[3].trim());
                             cfg.warningLightEnabled = "1".equals(parts[4].trim());
@@ -99,6 +102,9 @@ public class ReaderConfig {
                                 Integer.parseInt(parts[8].trim())
                             };
                             cfg.dwellTime = Integer.parseInt(parts[9].trim());
+                            if (parts.length >= 11) {
+                                cfg.beepEnabled = "1".equals(parts[10].trim());
+                            }
                         } catch (NumberFormatException e) {
                             // 파싱 실패시 기본값 유지
                         }
@@ -131,16 +137,17 @@ public class ReaderConfig {
     public static void saveToFile(String filePath, List<ReaderConfig> configs) {
         try (PrintWriter writer = new PrintWriter(
                 new OutputStreamWriter(new FileOutputStream(filePath), StandardCharsets.UTF_8))) {
-            writer.println("# 리더기 설정 파일 (이름,IP,Port,부저,경광등,출력1,출력2,출력3,출력4,드웰시간)");
+            writer.println("# 리더기 설정 파일 (이름,IP,Port,부저,경광등,출력1,출력2,출력3,출력4,드웰시간,비프음)");
             writer.println("MASK=" + epcMask);
             for (ReaderConfig cfg : configs) {
-                writer.printf("%s,%s,%d,%s,%s,%d,%d,%d,%d,%d%n",
+                writer.printf("%s,%s,%d,%s,%s,%d,%d,%d,%d,%d,%s%n",
                     cfg.getName(), cfg.getIp(), cfg.getPort(),
                     cfg.buzzerEnabled ? "1" : "0",
                     cfg.warningLightEnabled ? "1" : "0",
                     cfg.antennaPowers[0], cfg.antennaPowers[1],
                     cfg.antennaPowers[2], cfg.antennaPowers[3],
-                    cfg.dwellTime);
+                    cfg.dwellTime,
+                    cfg.beepEnabled ? "1" : "0");
             }
         } catch (IOException e) {
             AppLogger.error("ReaderConfig", "설정 파일 저장 실패: " + e.getMessage());

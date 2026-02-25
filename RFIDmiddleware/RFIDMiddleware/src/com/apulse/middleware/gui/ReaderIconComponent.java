@@ -29,15 +29,13 @@ public class ReaderIconComponent extends JPanel {
     private Runnable onBuzzerOff;
     private Runnable onAntennaConfig;
 
-    private static final int BAR_WIDTH = 5;
-
     public ReaderIconComponent(int index, String name, String ip, int port) {
         this.readerIndex = index;
         this.readerName = name;
         this.readerIp = ip;
         this.readerPort = port;
 
-        setPreferredSize(new Dimension(90, 62));
+        setPreferredSize(new Dimension(Theme.CARD_W, Theme.CARD_H));
         setOpaque(false);
         setToolTipText(name + " (" + ip + ":" + port + ")");
 
@@ -149,8 +147,6 @@ public class ReaderIconComponent extends JPanel {
 
     /**
      * 안테나 설정 다이얼로그 표시.
-     * @param currentPowers 현재 저장된 안테나 출력값 (길이 4)
-     * @param currentDwellTime 현재 저장된 드웰시간
      */
     public static void showAntennaConfigDialog(Component parent,
                                                int[] currentPowers, int currentDwellTime,
@@ -161,7 +157,6 @@ public class ReaderIconComponent extends JPanel {
         gbc.insets = new Insets(4, 6, 4, 6);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // 헤더
         gbc.gridy = 0;
         gbc.gridx = 0; panel.add(new JLabel("안테나"), gbc);
         gbc.gridx = 1; panel.add(new JLabel("출력(dBm)"), gbc);
@@ -199,7 +194,6 @@ public class ReaderIconComponent extends JPanel {
                     onPowerApply.accept(powers);
                 }
 
-                // 드웰시간: 첫 번째 안테나 값을 대표값으로 사용
                 short onTime = Short.parseShort(dwellFields[0].getText().trim());
                 short offTime = 0;
                 if (onDwellApply != null) {
@@ -223,98 +217,98 @@ public class ReaderIconComponent extends JPanel {
 
         int w = getWidth();
         int h = getHeight();
+        int r = Theme.CARD_ROUND;
+        int barW = Theme.CARD_BAR_W;
 
-        // 카드 배경 (상태에 따라 연한 색상)
         Color statusColor = status.getColor();
-        if (status == ReaderStatus.READING && !blinkOn) {
-            statusColor = statusColor.darker().darker();
-        }
-        Color bgColor = new Color(
-            Math.min(255, statusColor.getRed()   / 5 + 230),
-            Math.min(255, statusColor.getGreen() / 5 + 230),
-            Math.min(255, statusColor.getBlue()  / 5 + 230)
-        );
-        g2.setColor(bgColor);
-        g2.fillRoundRect(0, 0, w - 1, h - 1, 6, 6);
 
-        // 카드 테두리
-        g2.setColor(new Color(200, 200, 200));
-        g2.drawRoundRect(0, 0, w - 1, h - 1, 6, 6);
+        // Shadow (1px offset)
+        g2.setColor(Theme.CARD_SHADOW);
+        g2.fillRoundRect(1, 1, w - 1, h - 1, r, r);
 
-        // 좌측 상태바 (굵은 색상 바)
+        // White card background
+        g2.setColor(Theme.CARD_BG);
+        g2.fillRoundRect(0, 0, w - 2, h - 2, r, r);
+
+        // Thin border
+        g2.setColor(Theme.CARD_BORDER);
+        g2.drawRoundRect(0, 0, w - 2, h - 2, r, r);
+
+        // Left status bar
+        g2.setClip(new java.awt.geom.RoundRectangle2D.Float(0, 0, w - 2, h - 2, r, r));
         g2.setColor(statusColor);
-        g2.fillRoundRect(0, 0, BAR_WIDTH + 3, h - 1, 6, 6);
-        g2.fillRect(BAR_WIDTH, 0, 4, h);
+        g2.fillRect(0, 0, barW, h);
+        g2.setClip(null);
 
-        int textLeft = BAR_WIDTH + 7;
+        int textLeft = barW + 7;
+        int midY = h / 2;
 
-        // 1행: 리더기 이름
-        g2.setColor(Color.BLACK);
-        g2.setFont(new Font("맑은 고딕", Font.BOLD, 11));
+        // Row 1: reader name (top, smaller font)
+        g2.setColor(Theme.CARD_TEXT);
+        g2.setFont(new Font("\ub9d1\uc740 \uace0\ub515", Font.BOLD, 9));
         FontMetrics fm = g2.getFontMetrics();
         g2.drawString(readerName, textLeft, fm.getAscent() + 3);
 
-        // 2행: IP (작은 폰트)
-        g2.setFont(new Font("Consolas", Font.PLAIN, 9));
-        g2.setColor(new Color(100, 100, 100));
+        // Row 2: status circle + label (center-bottom area)
+        int circleD = 22;
+        int circleCY = midY + 9;
+        int circleX = textLeft;
+        int circleY = circleCY - circleD / 2;
+
+        // Glow/pulse for READING state
+        if (status == ReaderStatus.READING) {
+            int glowAlpha = blinkOn ? 50 : 20;
+            int glowSize = blinkOn ? 8 : 4;
+            g2.setColor(new Color(statusColor.getRed(), statusColor.getGreen(), statusColor.getBlue(), glowAlpha));
+            g2.fillOval(circleX - glowSize, circleY - glowSize, circleD + glowSize * 2, circleD + glowSize * 2);
+        }
+
+        // Main status circle
+        Color circleColor = statusColor;
+        if (status == ReaderStatus.READING && !blinkOn) {
+            circleColor = new Color(
+                Math.max(statusColor.getRed() - 40, 0),
+                Math.max(statusColor.getGreen() - 40, 0),
+                Math.max(statusColor.getBlue() - 40, 0));
+        }
+        g2.setColor(circleColor);
+        g2.fillOval(circleX, circleY, circleD, circleD);
+
+        // Inner highlight
+        g2.setColor(new Color(255, 255, 255, 70));
+        g2.fillOval(circleX + 3, circleY + 2, circleD / 2, circleD / 2 - 1);
+
+        // Status label (right of circle, smaller font)
+        g2.setFont(new Font("\ub9d1\uc740 \uace0\ub515", Font.PLAIN, 8));
         fm = g2.getFontMetrics();
-        int line2Y = fm.getAscent() + 17;
-        g2.drawString(readerIp, textLeft, line2Y);
+        g2.setColor(Theme.CARD_TEXT);
+        g2.drawString(status.getLabel(), circleX + circleD + 3, circleCY + fm.getAscent() / 2 - 1);
 
-        // 3행: Port
-        int line3Y = line2Y + fm.getHeight();
-        g2.drawString(":" + readerPort, textLeft, line3Y);
+        // B / L indicators (right side, vertical stack, larger)
+        int indSize = 12;
+        int indX = w - indSize - 8;
 
-        // 4행: 상태 텍스트 + 경광등
-        int line4Y = h - 6;
-
-        // 상태 점 + 텍스트
-        g2.setColor(statusColor);
-        g2.fillOval(textLeft, line4Y - 8, 8, 8);
-        g2.setColor(Color.DARK_GRAY);
-        g2.drawOval(textLeft, line4Y - 8, 8, 8);
-
-        g2.setFont(new Font("맑은 고딕", Font.PLAIN, 9));
-        g2.setColor(new Color(60, 60, 60));
-        fm = g2.getFontMetrics();
-        g2.drawString(status.getLabel(), textLeft + 11, line4Y);
-
-        // 부저 아이콘 (우측 상단)
-        int iconX = w - 26;
-        int buzzerY = line4Y - 22;
-
+        // Buzzer indicator (top)
+        int buzY = midY - indSize - 3;
         if (buzzerOn) {
             g2.setColor(new Color(100, 200, 255, 60));
-            g2.fillOval(iconX - 2, buzzerY - 2, 12, 12);
-            g2.setColor(new Color(30, 150, 220));
+            g2.fillOval(indX - 4, buzY - 4, indSize + 8, indSize + 8);
+            g2.setColor(Theme.INDICATOR_BUZZER_ON);
         } else {
-            g2.setColor(new Color(190, 190, 190));
+            g2.setColor(Theme.INDICATOR_OFF);
         }
-        g2.fillOval(iconX, buzzerY, 8, 8);
-        g2.setColor(Color.DARK_GRAY);
-        g2.drawOval(iconX, buzzerY, 8, 8);
+        g2.fillOval(indX, buzY, indSize, indSize);
 
-        g2.setFont(new Font("Consolas", Font.PLAIN, 8));
-        g2.setColor(buzzerOn ? new Color(30, 120, 180) : Color.GRAY);
-        g2.drawString("B", iconX + 10, buzzerY + 8);
-
-        // 경광등 아이콘 (우측 하단)
-        int lightY = line4Y - 9;
-
+        // Light indicator (bottom)
+        int lightY = midY + 3;
         if (lightOn) {
             g2.setColor(new Color(255, 200, 50, 60));
-            g2.fillOval(iconX - 2, lightY - 2, 12, 12);
-            g2.setColor(new Color(255, 180, 0));
+            g2.fillOval(indX - 4, lightY - 4, indSize + 8, indSize + 8);
+            g2.setColor(Theme.INDICATOR_LIGHT_ON);
         } else {
-            g2.setColor(new Color(190, 190, 190));
+            g2.setColor(Theme.INDICATOR_OFF);
         }
-        g2.fillOval(iconX, lightY, 8, 8);
-        g2.setColor(Color.DARK_GRAY);
-        g2.drawOval(iconX, lightY, 8, 8);
-
-        g2.setFont(new Font("Consolas", Font.PLAIN, 8));
-        g2.setColor(lightOn ? new Color(200, 130, 0) : Color.GRAY);
-        g2.drawString("L", iconX + 10, lightY + 8);
+        g2.fillOval(indX, lightY, indSize, indSize);
 
         g2.dispose();
     }

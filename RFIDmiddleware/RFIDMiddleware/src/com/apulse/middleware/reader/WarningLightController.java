@@ -13,6 +13,7 @@ public class WarningLightController {
 
     private int autoOffDelayMs = 5000;
     private final ConcurrentHashMap<ReaderConnection, ScheduledFuture<?>> activeTimers = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<ReaderConnection, ScheduledFuture<?>> buzzerTimers = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler;
 
     private WarningLightController() {
@@ -54,12 +55,39 @@ public class WarningLightController {
         activeTimers.put(connection, future);
     }
 
+    /**
+     * 부저 ON + 자동 OFF 스케줄.
+     * 같은 리더기에서 재호출 시 타이머를 리셋한다.
+     */
+    public void triggerBuzzer(ReaderConnection connection) {
+        // 기존 타이머가 있으면 취소
+        ScheduledFuture<?> existing = buzzerTimers.get(connection);
+        if (existing != null) {
+            existing.cancel(false);
+        }
+
+        // 부저 ON
+        connection.buzzerOn();
+
+        // 자동 OFF 타이머 스케줄
+        ScheduledFuture<?> future = scheduler.schedule(() -> {
+            connection.buzzerOff();
+            buzzerTimers.remove(connection);
+        }, autoOffDelayMs, TimeUnit.MILLISECONDS);
+
+        buzzerTimers.put(connection, future);
+    }
+
     public void shutdown() {
         // 모든 활성 타이머 취소
         for (ScheduledFuture<?> future : activeTimers.values()) {
             future.cancel(false);
         }
         activeTimers.clear();
+        for (ScheduledFuture<?> future : buzzerTimers.values()) {
+            future.cancel(false);
+        }
+        buzzerTimers.clear();
         scheduler.shutdownNow();
         AppLogger.info("WarningLightController", "Shutdown complete");
     }

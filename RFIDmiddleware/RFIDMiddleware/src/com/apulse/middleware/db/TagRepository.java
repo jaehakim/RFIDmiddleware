@@ -44,9 +44,9 @@ public class TagRepository {
         AppLogger.info("TagRepository", "Writer thread started");
     }
 
-    public void insertTagRead(String epc, String readerName, int rssi, String readTime) {
+    public void insertTagRead(String epc, String readerName, int rssi, int antenna, String readTime) {
         if (!DatabaseManager.getInstance().isAvailable()) return;
-        queue.offer(new TagRecord(epc, readerName, rssi, readTime));
+        queue.offer(new TagRecord(epc, readerName, rssi, antenna, readTime));
     }
 
     private void writerLoop() {
@@ -77,18 +77,19 @@ public class TagRepository {
         Connection conn = DatabaseManager.getInstance().getConnection();
         if (conn == null || batch.isEmpty()) return;
 
-        String sql = "INSERT INTO tag_reads (epc, reader_name, rssi, read_time) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO tag_reads (epc, reader_name, rssi, antenna, read_time) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             for (TagRecord rec : batch) {
                 pstmt.setString(1, rec.epc);
                 pstmt.setString(2, rec.readerName);
                 pstmt.setInt(3, rec.rssi);
+                pstmt.setInt(4, rec.antenna);
                 try {
                     Date d = sdf.parse(rec.readTime);
-                    pstmt.setTimestamp(4, new Timestamp(d.getTime()));
+                    pstmt.setTimestamp(5, new Timestamp(d.getTime()));
                 } catch (Exception e) {
-                    pstmt.setTimestamp(4, new Timestamp(System.currentTimeMillis()));
+                    pstmt.setTimestamp(5, new Timestamp(System.currentTimeMillis()));
                 }
                 pstmt.addBatch();
             }
@@ -103,7 +104,7 @@ public class TagRepository {
         Connection conn = DatabaseManager.getInstance().getConnection();
         if (conn == null) return results;
 
-        String sql = "SELECT epc, reader_name, rssi, read_time FROM tag_reads "
+        String sql = "SELECT epc, reader_name, rssi, antenna, read_time FROM tag_reads "
             + "WHERE read_time BETWEEN ? AND ? ORDER BY read_time DESC";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -114,8 +115,9 @@ public class TagRepository {
                     String epc = rs.getString("epc");
                     String readerName = rs.getString("reader_name");
                     int rssi = rs.getInt("rssi");
+                    int antenna = rs.getInt("antenna");
                     String readTime = sdf.format(rs.getTimestamp("read_time"));
-                    results.add(new TagData(epc, readerName, rssi, readTime));
+                    results.add(new TagData(epc, readerName, rssi, antenna, readTime));
                 }
             }
         } catch (Exception e) {
@@ -152,10 +154,10 @@ public class TagRepository {
 
     // --- Recent tag buffer (for dashboard real-time view) ---
 
-    public void addRecentTag(String time, String readerName, String epc, int rssi,
+    public void addRecentTag(String time, String readerName, String epc, int rssi, int antenna,
                              String assetNumber, String assetName, String department, String status) {
         long seq = recentTagSeq.incrementAndGet();
-        recentTags.addFirst(new RecentTag(seq, time, readerName, epc, rssi,
+        recentTags.addFirst(new RecentTag(seq, time, readerName, epc, rssi, antenna,
                 assetNumber, assetName, department, status));
         while (recentTags.size() > RECENT_TAG_MAX) {
             recentTags.pollLast();
@@ -180,18 +182,20 @@ public class TagRepository {
         public final String readerName;
         public final String epc;
         public final int rssi;
+        public final int antenna;
         public final String assetNumber;
         public final String assetName;
         public final String department;
         public final String status;
 
-        RecentTag(long seq, String time, String readerName, String epc, int rssi,
+        RecentTag(long seq, String time, String readerName, String epc, int rssi, int antenna,
                   String assetNumber, String assetName, String department, String status) {
             this.seq = seq;
             this.time = time;
             this.readerName = readerName;
             this.epc = epc;
             this.rssi = rssi;
+            this.antenna = antenna;
             this.assetNumber = assetNumber;
             this.assetName = assetName;
             this.department = department;
@@ -203,12 +207,14 @@ public class TagRepository {
         final String epc;
         final String readerName;
         final int rssi;
+        final int antenna;
         final String readTime;
 
-        TagRecord(String epc, String readerName, int rssi, String readTime) {
+        TagRecord(String epc, String readerName, int rssi, int antenna, String readTime) {
             this.epc = epc;
             this.readerName = readerName;
             this.rssi = rssi;
+            this.antenna = antenna;
             this.readTime = readTime;
         }
     }

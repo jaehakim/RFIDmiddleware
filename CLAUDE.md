@@ -155,7 +155,7 @@ MainFrame()
 ```
 RFIDmiddleware/RFIDMiddleware/
 ├── config/
-│   ├── readers.cfg          -- 리더기 설정 (이름,IP,포트,부저,경광등,안테나출력,드웰타임)
+│   ├── readers.cfg          -- 리더기 설정 (이름,IP,포트,부저,경광등,안테나출력,드웰타임,비프음)
 │   ├── database.cfg         -- DB 설정 (MariaDB 10.0.0.148:13306, tagflow)
 │   └── log.cfg              -- 로그 설정 (레벨,파일경로,로테이션,콘솔)
 ├── libs/
@@ -176,7 +176,7 @@ RFIDmiddleware/RFIDMiddleware/
 │   │   ├── TagRepository.java   -- 태그 읽기 배치 저장 (싱글톤)
 │   │   └── AssetRepository.java -- 자산/반출허용 캐시, 미허가 반출 판단 (싱글톤)
 │   ├── reader/
-│   │   ├── ReaderConnection.java -- 리더기 TCP 연결, 경광등/부저 제어
+│   │   ├── ReaderConnection.java -- 리더기 TCP 연결, 경광등/부저/비프음 제어
 │   │   ├── ReaderManager.java    -- 멀티 리더기 관리
 │   │   ├── ReaderStatus.java     -- 연결 상태 enum
 │   │   ├── TagData.java          -- 태그 데이터 모델
@@ -320,7 +320,7 @@ DB 원본:  0420100420250910000006   (22자 = 11바이트, 5.5워드)
 ```
 # 리더기 설정 파일
 MASK=0420
-Reader-01,192.168.0.196,20058,1,0,30,30,30,30,500
+Reader-01,192.168.0.196,20058,1,0,30,30,30,30,500,1
 ...
 ```
 - 기존 CSV 리더기 파서는 `MASK=` 줄을 자동 스킵 (CSV 3필드 미만)
@@ -332,6 +332,38 @@ Reader-01,192.168.0.196,20058,1,0,30,30,30,30,500
 | `config/ReaderConfig.java` | `epcMask` 정적 필드, `loadFromFile()`에서 `MASK=` 파싱, `saveToFile()`에서 출력 |
 | `gui/ConfigDialog.java` | EPC Mask 입력 필드 UI (설정 다이얼로그 상단) |
 | `gui/MainFrame.java` | tagListener 맨 앞에서 mask 필터링 수행 |
+
+---
+
+## 리더기 비프음 (내장 부저)
+
+리더기가 태그를 읽을 때 나는 내장 비프음(beep)을 리더기별로 켜고/끌 수 있는 기능.
+
+**기존 "부저"(relay 2)와 구분**: 부저=외부 릴레이 장치(미허가 반출 알림용), 비프음=리더기 내장 소리(태그 읽기 시)
+
+### 동작
+- **리더기별 설정**: 각 리더기에 개별 적용 (글로벌이 아닌 리더기별)
+- **기본값**: `true` (비프음 켜짐)
+- **적용 시점**: 리더기 연결 직후 `applySavedConfig()`에서 SDK `setBuzzerEnable()` 호출
+- **실시간 변경**: `ReaderConnection.setBeepEnabled(boolean)` 메서드로 연결 중 변경 가능
+
+### readers.cfg 저장 형식
+```
+# 리더기 설정 파일 (이름,IP,Port,부저,경광등,출력1,출력2,출력3,출력4,드웰시간,비프음)
+MASK=0420
+Reader-01,192.168.0.196,20058,1,0,30,30,30,30,500,1
+...
+```
+- 11번째 필드(인덱스 10): `1`=비프음 켜짐, `0`=꺼짐
+- 기존 10필드 호환 유지 (11번째 필드 없으면 기본값 `true`)
+
+### 관련 코드
+| 파일 | 역할 |
+|------|------|
+| `config/ReaderConfig.java` | `beepEnabled` 필드, `loadFromFile()` 11번째 필드 파싱, `saveToFile()` 출력 |
+| `reader/ReaderConnection.java` | `applySavedConfig()`에서 연결 시 SDK 호출, `setBeepEnabled()` 실시간 변경 |
+| `gui/ConfigDialog.java` | "비프음" 체크박스 컬럼 (인덱스 10) |
+| `api/ApiServer.java` | GET/PUT `/api/readers` 에 `beepEnabled` 필드 지원 |
 
 ---
 
@@ -383,7 +415,7 @@ Reader-01,192.168.0.196,20058,1,0,30,30,30,30,500
 #### 조회 API (GET)
 | Method | URL | 설명 |
 |--------|-----|------|
-| GET | `/api/readers` | 리더기 설정정보 전체 조회 (이름, IP, 포트, 부저, 경광등, 안테나출력, 드웰시간, 상태) |
+| GET | `/api/readers` | 리더기 설정정보 전체 조회 (이름, IP, 포트, 부저, 경광등, 안테나출력, 드웰시간, 비프음, 상태) |
 | GET | `/api/assets` | 자산 테이블 조회 (자산번호, EPC, 자산명, 부서, 등록일) |
 | GET | `/api/export-permissions` | 반출허용 목록 조회 (EPC, 자산번호, 자산명, 허용기간, 사유, 상태) |
 | GET | `/api/export-alerts?from=yyyy-MM-dd HH:mm:ss&to=yyyy-MM-dd HH:mm:ss` | 반출알림 이력 조회 (기간 필수) |
@@ -399,7 +431,7 @@ Reader-01,192.168.0.196,20058,1,0,30,30,30,30,500
 #### 수정 API (PUT/POST/DELETE)
 | Method | URL | 설명 |
 |--------|-----|------|
-| PUT | `/api/readers/{name}` | 리더기 설정 수정 (ip, port, buzzer, warningLight, antennaPower1~4, dwellTime) |
+| PUT | `/api/readers/{name}` | 리더기 설정 수정 (ip, port, buzzer, warningLight, antennaPower1~4, dwellTime, beepEnabled) |
 | POST | `/api/assets` | 자산 추가 (assetNumber, epc, assetName, department, possession) |
 | PUT | `/api/assets/{id}` | 자산 수정 (assetNumber, epc, assetName, department, possession - 일부 필드만 가능) |
 | POST | `/api/export-permissions` | 반출허용 추가 (epc, permitStart, permitEnd, reason) |
@@ -435,7 +467,7 @@ curl "http://localhost:18080/api/export-alerts?from=2026-01-01%2000:00:00&to=202
 # 리더기 설정 수정
 curl -X PUT http://localhost:18080/api/readers/Reader1 \
   -H "Content-Type: application/json" \
-  -d '{"ip":"192.168.0.100","port":14150,"buzzer":true,"warningLight":true,"dwellTime":500}'
+  -d '{"ip":"192.168.0.100","port":14150,"buzzer":true,"warningLight":true,"dwellTime":500,"beepEnabled":true}'
 
 # 자산 추가
 curl -X POST http://localhost:18080/api/assets \

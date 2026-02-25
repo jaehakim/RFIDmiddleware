@@ -17,43 +17,45 @@ public class LogPanel extends JPanel {
 
     public LogPanel() {
         setLayout(new BorderLayout());
-        setBorder(BorderFactory.createTitledBorder("로그"));
+        setOpaque(true);
+        setBackground(Theme.CONTENT_BG);
         setPreferredSize(new Dimension(0, 150));
+
+        // Section label instead of TitledBorder
+        add(Theme.createSectionLabel("\ub85c\uadf8"), BorderLayout.NORTH);
 
         logArea = new JTextArea();
         logArea.setEditable(false);
-        logArea.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
-        logArea.setBackground(new Color(30, 30, 30));
-        logArea.setForeground(new Color(200, 200, 200));
-        logArea.setCaretColor(Color.WHITE);
+        logArea.setFont(Theme.LOG);
+        logArea.setBackground(Theme.LOG_BG);
+        logArea.setForeground(Theme.LOG_FG);
+        logArea.setCaretColor(new Color(0x88, 0x88, 0x88));
+        logArea.setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
 
         JScrollPane scrollPane = new JScrollPane(logArea);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        scrollPane.setBorder(null);
         add(scrollPane, BorderLayout.CENTER);
 
-        // 하단 버튼
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        // Bottom button panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 4));
+        buttonPanel.setOpaque(true);
+        buttonPanel.setBackground(Theme.CONTENT_BG);
 
-        JButton saveButton = new JButton("로그 저장");
-        saveButton.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
-        saveButton.addActionListener(e -> saveLog());
+        JButton saveButton = Theme.createFlatButton("\ub85c\uadf8 \uc800\uc7a5", e -> saveLog());
+        JButton clearButton = Theme.createFlatButton("\ub85c\uadf8 \uc9c0\uc6b0\uae30", e -> logArea.setText(""));
+
         buttonPanel.add(saveButton);
-
-        JButton clearButton = new JButton("로그 지우기");
-        clearButton.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
-        clearButton.addActionListener(e -> logArea.setText(""));
         buttonPanel.add(clearButton);
 
         add(buttonPanel, BorderLayout.SOUTH);
     }
 
-    /** 로그 메시지 추가 */
     public void appendLog(String message) {
         String timestamp = HexUtils.now();
         String logLine = "[" + timestamp + "] " + message + "\n";
         logArea.append(logLine);
 
-        // 최대 라인 수 제한
         int lineCount = logArea.getLineCount();
         if (lineCount > MAX_LOG_LINES) {
             try {
@@ -62,23 +64,21 @@ public class LogPanel extends JPanel {
             } catch (Exception ignored) {}
         }
 
-        // 자동 스크롤
         logArea.setCaretPosition(logArea.getDocument().getLength());
     }
 
-    /** 로그를 파일로 저장 */
     private void saveLog() {
         String text = logArea.getText();
         if (text.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "저장할 로그가 없습니다.", "알림", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "\uc800\uc7a5\ud560 \ub85c\uadf8\uac00 \uc5c6\uc2b5\ub2c8\ub2e4.", "\uc54c\ub9bc", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
 
         String defaultName = "log_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".txt";
         JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("로그 저장");
+        chooser.setDialogTitle("\ub85c\uadf8 \uc800\uc7a5");
         chooser.setSelectedFile(new File(defaultName));
-        chooser.setFileFilter(new FileNameExtensionFilter("텍스트 파일 (*.txt)", "txt"));
+        chooser.setFileFilter(new FileNameExtensionFilter("\ud14d\uc2a4\ud2b8 \ud30c\uc77c (*.txt)", "txt"));
 
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             File file = chooser.getSelectedFile();
@@ -87,14 +87,13 @@ public class LogPanel extends JPanel {
             }
             try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
                 writer.print(text);
-                JOptionPane.showMessageDialog(this, "로그가 저장되었습니다.\n" + file.getAbsolutePath(), "저장 완료", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "\ub85c\uadf8\uac00 \uc800\uc7a5\ub418\uc5c8\uc2b5\ub2c8\ub2e4.\n" + file.getAbsolutePath(), "\uc800\uc7a5 \uc644\ub8cc", JOptionPane.INFORMATION_MESSAGE);
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "저장 실패: " + ex.getMessage(), "오류", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "\uc800\uc7a5 \uc2e4\ud328: " + ex.getMessage(), "\uc624\ub958", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
-    /** 리더기별 로그 */
     public void appendLog(String readerName, String message) {
         appendLog("[" + readerName + "] " + message);
     }

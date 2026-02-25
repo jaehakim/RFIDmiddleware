@@ -27,7 +27,7 @@ public class ReaderConnection {
     }
 
     public interface TagDataListener {
-        void onTagRead(ReaderConnection connection, String epc, int rssi);
+        void onTagRead(ReaderConnection connection, String epc, int rssi, int antenna);
     }
 
     public ReaderConnection(ReaderConfig config) {
@@ -104,7 +104,7 @@ public class ReaderConnection {
             firmwareVersion = version[0] != null ? version[0] : "unknown";
             log("Connected (FW: " + firmwareVersion + ")");
 
-            // 부저 PUSH + 안테나 설정 FETCH (CONNECTED 이벤트 전에 완료)
+            // 안테나 설정 FETCH (CONNECTED 이벤트 전에 완료)
             applySavedConfig();
 
             setStatus(ReaderStatus.CONNECTED);
@@ -119,26 +119,51 @@ public class ReaderConnection {
         }
     }
 
-    /** 연결 후 부저는 PUSH, 안테나 설정은 리더기에서 FETCH */
+    /** 연결 후 안테나 설정은 리더기에서 FETCH, 비프음은 설정값 적용 */
     private void applySavedConfig() {
         try {
-            // 부저 설정 적용 (읽기 API 없으므로 기존대로 PUSH)
-            boolean savedBuzzer = config.isBuzzerEnabled();
-            int buzzerResult = reader.setBuzzerEnable(savedBuzzer ? (byte) 1 : (byte) 0);
-            if (buzzerResult == FixedReaderApiError.ErrNoError) {
-                buzzerOn = savedBuzzer;
-                for (ReaderConnectionListener l : listeners) {
-                    l.onBuzzerChanged(this, buzzerOn);
-                }
-                log("Buzzer config applied: " + (savedBuzzer ? "ON" : "OFF"));
-            } else {
-                log("Buzzer config failed (error: " + buzzerResult + ")");
-            }
-
             // 안테나/드웰 설정은 리더기에서 가져옴
             fetchAntennaConfigFromReader();
+
+            // 비프음(내장 부저) 설정 적용
+            applyBeepSetting();
         } catch (Exception e) {
             log("Apply saved config exception: " + e.getMessage());
+        }
+    }
+
+    /** 리더기 내장 비프음 설정 적용 */
+    private void applyBeepSetting() {
+        try {
+            byte val = config.isBeepEnabled() ? (byte) 1 : (byte) 0;
+            int result = reader.setBuzzerEnable(val);
+            if (result == FixedReaderApiError.ErrNoError) {
+                log("Beep " + (config.isBeepEnabled() ? "enabled" : "disabled"));
+            } else {
+                log("Set beep failed (error: " + result + ")");
+            }
+        } catch (Exception e) {
+            log("Set beep exception: " + e.getMessage());
+        }
+    }
+
+    /** 리더기 내장 비프음 설정 변경 (연결 중 실시간 변경용) */
+    public synchronized void setBeepEnabled(boolean enabled) {
+        if (reader == null || (status != ReaderStatus.CONNECTED && status != ReaderStatus.READING)) {
+            log("Cannot set beep (not connected)");
+            return;
+        }
+        try {
+            byte val = enabled ? (byte) 1 : (byte) 0;
+            int result = reader.setBuzzerEnable(val);
+            if (result == FixedReaderApiError.ErrNoError) {
+                config.setBeepEnabled(enabled);
+                log("Beep " + (enabled ? "enabled" : "disabled"));
+            } else {
+                log("Set beep failed (error: " + result + ")");
+            }
+        } catch (Exception e) {
+            log("Set beep exception: " + e.getMessage());
         }
     }
 
@@ -310,7 +335,7 @@ public class ReaderConnection {
             return;
         }
         try {
-            int result = reader.setRelayStatus((byte) 2, (byte) 1);
+            int result = reader.setRelayStatus((byte) 1, (byte) 1);
             if (result == FixedReaderApiError.ErrNoError) {
                 lightOn = true;
                 for (ReaderConnectionListener l : listeners) {
@@ -332,7 +357,7 @@ public class ReaderConnection {
             return;
         }
         try {
-            int result = reader.setRelayStatus((byte) 2, (byte) 0);
+            int result = reader.setRelayStatus((byte) 1, (byte) 0);
             if (result == FixedReaderApiError.ErrNoError) {
                 lightOn = false;
                 for (ReaderConnectionListener l : listeners) {
@@ -347,17 +372,16 @@ public class ReaderConnection {
         }
     }
 
-    /** 부저 ON */
+    /** 부저(릴레이2) ON */
     public synchronized void buzzerOn() {
         if (reader == null || (status != ReaderStatus.CONNECTED && status != ReaderStatus.READING)) {
             log("Cannot control buzzer (not connected)");
             return;
         }
         try {
-            int result = reader.setBuzzerEnable((byte) 1);
+            int result = reader.setRelayStatus((byte) 2, (byte) 1);
             if (result == FixedReaderApiError.ErrNoError) {
                 buzzerOn = true;
-                config.setBuzzerEnabled(true);
                 for (ReaderConnectionListener l : listeners) {
                     l.onBuzzerChanged(this, true);
                 }
@@ -370,17 +394,16 @@ public class ReaderConnection {
         }
     }
 
-    /** 부저 OFF */
+    /** 부저(릴레이2) OFF */
     public synchronized void buzzerOff() {
         if (reader == null || (status != ReaderStatus.CONNECTED && status != ReaderStatus.READING)) {
             log("Cannot control buzzer (not connected)");
             return;
         }
         try {
-            int result = reader.setBuzzerEnable((byte) 0);
+            int result = reader.setRelayStatus((byte) 2, (byte) 0);
             if (result == FixedReaderApiError.ErrNoError) {
                 buzzerOn = false;
-                config.setBuzzerEnabled(false);
                 for (ReaderConnectionListener l : listeners) {
                     l.onBuzzerChanged(this, false);
                 }
@@ -537,8 +560,8 @@ public class ReaderConnection {
             // CRC (2 bytes) - skip
             offset += 2;
 
-            // Antenna (1 byte)
-            int antenna = (offset < reportDataLen) ? (reportData[offset] & 0xFF) : 0;
+            // Antenna (1 byte, 하드웨어 0-based → 1-based 변환)
+            int antenna = (offset < reportDataLen) ? (reportData[offset] & 0xFF) + 1 : 0;
             offset += 1;
 
             // RSSI (1 byte, signed)
@@ -551,7 +574,7 @@ public class ReaderConnection {
                 epc, rssi, antenna, pc));
 
             for (TagDataListener l : tagListeners) {
-                l.onTagRead(this, epc, rssi);
+                l.onTagRead(this, epc, rssi, antenna);
             }
         } catch (Exception e) {
             log("Report parse error: " + HexUtils.bytesToHex(reportData, 0, reportDataLen));

@@ -4,6 +4,7 @@ public class TagData {
     private final String epc;
     private String readerName;
     private int rssi;
+    private int antenna;
     private int count;
     private String firstSeen;
     private String lastSeen;
@@ -15,10 +16,11 @@ public class TagData {
     /** 상태: null=일반태그, "반출허용", "반출알림" */
     private String assetStatus;
 
-    public TagData(String epc, String readerName, int rssi, String time) {
+    public TagData(String epc, String readerName, int rssi, int antenna, String time) {
         this.epc = epc;
         this.readerName = readerName;
         this.rssi = rssi;
+        this.antenna = antenna;
         this.count = 1;
         this.firstSeen = time;
         this.lastSeen = time;
@@ -27,6 +29,7 @@ public class TagData {
     public String getEpc() { return epc; }
     public String getReaderName() { return readerName; }
     public int getRssi() { return rssi; }
+    public int getAntenna() { return antenna; }
     public int getCount() { return count; }
     public String getFirstSeen() { return firstSeen; }
     public String getLastSeen() { return lastSeen; }
@@ -42,14 +45,16 @@ public class TagData {
         this.assetStatus = assetStatus;
     }
 
-    public void update(int rssi, String time) {
+    public void update(int rssi, int antenna, String time) {
         this.rssi = rssi;
+        this.antenna = antenna;
         this.count++;
         this.lastSeen = time;
     }
 
-    public void update(int rssi, String time, String readerName) {
+    public void update(int rssi, int antenna, String time, String readerName) {
         this.rssi = rssi;
+        this.antenna = antenna;
         this.count++;
         this.lastSeen = time;
         this.readerName = readerName;

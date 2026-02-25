@@ -60,6 +60,7 @@ public class DatabaseManager {
                 + "epc VARCHAR(128) NOT NULL, "
                 + "reader_name VARCHAR(64) NOT NULL, "
                 + "rssi INT NOT NULL, "
+                + "antenna INT DEFAULT 0, "
                 + "read_time DATETIME NOT NULL, "
                 + "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
                 + "INDEX idx_epc (epc), "
@@ -112,6 +113,12 @@ public class DatabaseManager {
             // 기존 assets 테이블에 possession 컬럼이 없으면 추가
             try {
                 stmt.execute("ALTER TABLE assets ADD COLUMN IF NOT EXISTS possession TINYINT(1) DEFAULT 1");
+            } catch (Exception ignore) {
+                // 이미 존재하거나 지원하지 않는 경우 무시
+            }
+            // 기존 tag_reads 테이블에 antenna 컬럼이 없으면 추가
+            try {
+                stmt.execute("ALTER TABLE tag_reads ADD COLUMN IF NOT EXISTS antenna INT DEFAULT 0");
             } catch (Exception ignore) {
                 // 이미 존재하거나 지원하지 않는 경우 무시
             }

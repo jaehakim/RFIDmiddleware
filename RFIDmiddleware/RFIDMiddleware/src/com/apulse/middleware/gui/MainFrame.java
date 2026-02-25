@@ -38,13 +38,13 @@ public class MainFrame extends JFrame {
     private List<ReaderConfig> configs;
 
     public MainFrame() {
-        super("RFID 미들웨어");
+        super("RFID \ubbf8\ub4e4\uc6e8\uc5b4");
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         setSize(900, 700);
         setMinimumSize(new Dimension(700, 500));
         setLocationRelativeTo(null);
 
-        // DB/캐시 초기화
+        // DB/cache init
         DatabaseConfig dbConfig = new DatabaseConfig();
         DatabaseManager.getInstance().initialize(dbConfig);
         TagRepository.getInstance().start();
@@ -58,7 +58,7 @@ public class MainFrame extends JFrame {
         initLayout();
         loadConfig();
 
-        // REST API 서버 시작
+        // REST API server
         try {
             apiServer = new ApiServer(readerManager, configs, CONFIG_FILE);
             apiServer.start();
@@ -71,8 +71,8 @@ public class MainFrame extends JFrame {
             public void windowClosing(WindowEvent e) {
                 int result = JOptionPane.showConfirmDialog(
                     MainFrame.this,
-                    "프로그램을 종료하시겠습니까?",
-                    "종료 확인",
+                    "\ud504\ub85c\uadf8\ub7a8\uc744 \uc885\ub8cc\ud558\uc2dc\uaca0\uc2b5\ub2c8\uae4c?",
+                    "\uc885\ub8cc \ud655\uc778",
                     JOptionPane.YES_NO_OPTION
                 );
                 if (result == JOptionPane.YES_OPTION) {
@@ -92,82 +92,132 @@ public class MainFrame extends JFrame {
     }
 
     private void initLayout() {
-        setLayout(new BorderLayout(0, 2));
+        setLayout(new BorderLayout(0, 0));
 
-        // 상단 툴바
-        JToolBar toolBar = new JToolBar();
-        toolBar.setFloatable(false);
-        toolBar.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+        // --- Dark navy header panel ---
+        JPanel headerPanel = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                GradientPaint gp = new GradientPaint(
+                    0, 0, Theme.HEADER_BG,
+                    0, getHeight(), Theme.HEADER_BG_BOTTOM);
+                g2.setPaint(gp);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.dispose();
+            }
+        };
+        headerPanel.setPreferredSize(new Dimension(0, Theme.HEADER_H));
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 12));
+        headerPanel.setOpaque(false);
 
-        JButton connectAllBtn = createToolButton("전체 연결", e -> {
+        // Left: title with accent background
+        JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(255, 255, 255, 18));
+                g2.fillRoundRect(0, 6, getWidth() - 4, getHeight() - 12, 8, 8);
+                g2.dispose();
+            }
+        };
+        titlePanel.setOpaque(false);
+        JLabel titleLabel = new JLabel("RFID \ubbf8\ub4e4\uc6e8\uc5b4");
+        titleLabel.setFont(Theme.TITLE);
+        titleLabel.setForeground(new Color(0x8A, 0xBE, 0xF5));
+        titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
+        titlePanel.add(titleLabel);
+        headerPanel.add(titlePanel, BorderLayout.WEST);
+
+        // Center: button groups
+        JPanel centerButtons = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        centerButtons.setOpaque(false);
+
+        JButton connectAllBtn = Theme.createHeaderButton("\u25cf \uc804\uccb4 \uc5f0\uacb0", e -> {
             logPanel.appendLog("Connect all readers...");
             readerManager.connectAll();
         });
-        JButton disconnectAllBtn = createToolButton("전체 해제", e -> {
+        JButton disconnectAllBtn = Theme.createHeaderButton("\u25cb \uc804\uccb4 \ud574\uc81c", e -> {
             logPanel.appendLog("Disconnect all readers...");
             readerManager.disconnectAll();
         });
-        JButton startInvBtn = createToolButton("인벤토리 시작", e -> {
+        JButton startInvBtn = Theme.createHeaderButton("\u25b6 \uc778\ubca4\ud1a0\ub9ac \uc2dc\uc791", e -> {
             logPanel.appendLog("Start inventory all...");
             readerManager.startInventoryAll();
         });
-        JButton stopInvBtn = createToolButton("인벤토리 중지", e -> {
+        JButton stopInvBtn = Theme.createHeaderButton("\u25a0 \uc778\ubca4\ud1a0\ub9ac \uc911\uc9c0", e -> {
             logPanel.appendLog("Stop inventory all...");
             readerManager.stopInventoryAll();
         });
-        JButton configBtn = createToolButton("설정", e -> openConfigDialog());
-        JButton clearTagsBtn = createToolButton("태그 초기화", e -> tagDataPanel.clearTags());
-        JButton assetDbBtn = createToolButton("자산 DB", e -> showAssetDbDialog());
-        JButton helpBtn = createToolButton("도움말", e -> showHelpDialog());
+        JButton clearTagsBtn = Theme.createHeaderButton("\u25c7 \ud0dc\uadf8 \ucd08\uae30\ud654", e -> tagDataPanel.clearTags());
+        JButton assetDbBtn = Theme.createHeaderButton("\u25c6 \uc790\uc0b0 DB", e -> showAssetDbDialog());
 
-        toolBar.add(connectAllBtn);
-        toolBar.addSeparator(new Dimension(5, 0));
-        toolBar.add(disconnectAllBtn);
-        toolBar.addSeparator(new Dimension(15, 0));
-        toolBar.add(startInvBtn);
-        toolBar.addSeparator(new Dimension(5, 0));
-        toolBar.add(stopInvBtn);
-        toolBar.addSeparator(new Dimension(15, 0));
-        toolBar.add(clearTagsBtn);
-        toolBar.addSeparator(new Dimension(5, 0));
-        toolBar.add(assetDbBtn);
-        toolBar.add(Box.createHorizontalGlue());
-        toolBar.add(helpBtn);
-        toolBar.addSeparator(new Dimension(5, 0));
-        toolBar.add(configBtn);
+        centerButtons.add(connectAllBtn);
+        centerButtons.add(disconnectAllBtn);
+        centerButtons.add(createHeaderSeparator());
+        centerButtons.add(startInvBtn);
+        centerButtons.add(stopInvBtn);
+        centerButtons.add(createHeaderSeparator());
+        centerButtons.add(clearTagsBtn);
+        centerButtons.add(assetDbBtn);
 
-        add(toolBar, BorderLayout.NORTH);
+        headerPanel.add(centerButtons, BorderLayout.CENTER);
 
-        // 중앙: 상태 패널 + 태그 테이블 + 로그
-        JPanel centerPanel = new JPanel(new BorderLayout(0, 2));
-        centerPanel.add(statusPanel, BorderLayout.NORTH);
+        // Right: help + settings
+        JPanel rightButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        rightButtons.setOpaque(false);
 
-        // 태그 테이블과 로그를 분할
+        JButton helpBtn = Theme.createHeaderButton("? \ub3c4\uc6c0\ub9d0", e -> showHelpDialog());
+        JButton configBtn = Theme.createHeaderButton("\u25a3 \uc124\uc815", e -> openConfigDialog());
+
+        rightButtons.add(helpBtn);
+        rightButtons.add(configBtn);
+
+        headerPanel.add(rightButtons, BorderLayout.EAST);
+
+        add(headerPanel, BorderLayout.NORTH);
+
+        // --- Content area ---
+        JPanel contentPanel = new JPanel(new BorderLayout(0, 0));
+        contentPanel.setBackground(Theme.CONTENT_BG);
+        contentPanel.setOpaque(true);
+
+        contentPanel.add(statusPanel, BorderLayout.NORTH);
+
         JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, tagDataPanel, logPanel);
         splitPane.setResizeWeight(0.7);
         splitPane.setDividerSize(5);
+        splitPane.setBorder(null);
 
-        centerPanel.add(splitPane, BorderLayout.CENTER);
-        add(centerPanel, BorderLayout.CENTER);
+        contentPanel.add(splitPane, BorderLayout.CENTER);
+        add(contentPanel, BorderLayout.CENTER);
     }
 
-    private JButton createToolButton(String text, java.awt.event.ActionListener action) {
-        JButton btn = new JButton(text);
-        btn.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
-        btn.setFocusPainted(false);
-        btn.addActionListener(action);
-        return btn;
+    /** Create a vertical separator for the header */
+    private Component createHeaderSeparator() {
+        JPanel sep = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                g.setColor(Theme.HEADER_SEPARATOR);
+                int midX = getWidth() / 2;
+                g.drawLine(midX, 8, midX, getHeight() - 8);
+            }
+        };
+        sep.setOpaque(false);
+        sep.setPreferredSize(new Dimension(12, Theme.HEADER_H));
+        return sep;
     }
 
-    /** 설정 파일 로드 및 리더기 초기화 */
     private void loadConfig() {
         configs = ReaderConfig.loadFromFile(CONFIG_FILE);
         logPanel.appendLog("Config loaded: " + configs.size() + " reader(s)");
-
         initializeReaders();
     }
 
-    /** 리더기 매니저 및 상태 패널 초기화 */
     private void initializeReaders() {
         ReaderConnection.ReaderConnectionListener statusListener = new ReaderConnection.ReaderConnectionListener() {
             @Override
@@ -177,7 +227,6 @@ public class MainFrame extends JFrame {
                     if (index >= 0) {
                         statusPanel.updateStatus(index, newStatus);
                     }
-                    // FETCH된 안테나 설정을 readers.cfg에 영구 반영
                     if (newStatus == ReaderStatus.CONNECTED) {
                         saveConfig();
                     }
@@ -200,7 +249,6 @@ public class MainFrame extends JFrame {
                     int index = findConnectionIndex(connection);
                     if (index >= 0) {
                         statusPanel.updateBuzzerStatus(index, buzzerOn);
-                        saveConfig();
                     }
                 });
             }
@@ -213,8 +261,7 @@ public class MainFrame extends JFrame {
             }
         };
 
-        ReaderConnection.TagDataListener tagListener = (connection, epc, rssi) -> {
-            // EPC Mask 필터링
+        ReaderConnection.TagDataListener tagListener = (connection, epc, rssi, antenna) -> {
             String mask = ReaderConfig.getEpcMask();
             if (!mask.isEmpty() && !epc.toUpperCase().startsWith(mask.toUpperCase())) {
                 SwingUtilities.invokeLater(() ->
@@ -224,11 +271,9 @@ public class MainFrame extends JFrame {
                 return;
             }
 
-            // 자산정보 및 상태 판단 (백그라운드 스레드에서 실행)
             AssetRepository.AssetInfo assetInfo = AssetRepository.getInstance().getAssetInfo(epc);
             AssetRepository.AssetInfo unauthorizedAsset = AssetRepository.getInstance().checkUnauthorizedExport(epc);
 
-            // 상태 결정: 자산 아님 → null, 자산+미허가 → 반출알림, 자산+허용 → 반출허용
             String assetStatus = null;
             if (assetInfo != null) {
                 assetStatus = (unauthorizedAsset != null)
@@ -243,35 +288,33 @@ public class MainFrame extends JFrame {
                 String department = assetInfo != null ? assetInfo.getDepartment() : null;
 
                 boolean isNew = tagDataPanel.addTag(
-                    connection.getConfig().getName(), epc, rssi,
+                    connection.getConfig().getName(), epc, rssi, antenna,
                     assetNumber, assetName, department, finalStatus);
                 if (isNew) {
                     String readTime = HexUtils.nowShort();
-                    // 캐시 MISS → DB 저장
                     TagRepository.getInstance().insertTagRead(
                         epc, connection.getConfig().getName(),
-                        rssi, readTime);
-                    // 최근 태그 버퍼에 추가 (대시보드 실시간 표시용)
+                        rssi, antenna, readTime);
                     TagRepository.getInstance().addRecentTag(
-                        readTime, connection.getConfig().getName(), epc, rssi,
+                        readTime, connection.getConfig().getName(), epc, rssi, antenna,
                         assetNumber, assetName, department, finalStatus);
                 }
 
-                // 미허가 반출 감지 → 경광등 + DB 기록 + 로그
                 if (unauthorizedAsset != null && AssetRepository.getInstance().shouldAlert(epc)) {
                     String time = HexUtils.nowShort();
                     String readerName = connection.getConfig().getName();
 
-                    // 경광등 트리거 (리더기 설정에서 경광등 '적용' 시에만)
                     if (connection.getConfig().isWarningLightEnabled()) {
                         WarningLightController.getInstance().triggerWarningLight(connection);
                     }
 
-                    // DB 기록
+                    if (connection.getConfig().isBuzzerEnabled()) {
+                        WarningLightController.getInstance().triggerBuzzer(connection);
+                    }
+
                     AssetRepository.getInstance().insertAlert(
                         epc, unauthorizedAsset.getAssetNumber(), readerName, rssi, time);
 
-                    // 로그
                     logPanel.appendLog(readerName,
                         "UNAUTHORIZED EXPORT: EPC=" + epc
                         + ", Asset=" + unauthorizedAsset.getAssetNumber()
@@ -284,7 +327,6 @@ public class MainFrame extends JFrame {
         statusPanel.initialize(configs, readerManager, this::saveConfig);
     }
 
-    /** ReaderConnection의 인덱스 찾기 */
     private int findConnectionIndex(ReaderConnection connection) {
         List<ReaderConnection> connections = readerManager.getConnections();
         for (int i = 0; i < connections.size(); i++) {
@@ -293,187 +335,178 @@ public class MainFrame extends JFrame {
         return -1;
     }
 
-    /** 현재 설정을 파일에 저장 */
     private void saveConfig() {
         ReaderConfig.saveToFile(CONFIG_FILE, configs);
     }
 
-    /** 도움말 다이얼로그 */
     private void showHelpDialog() {
-        String html = "<html><body style='font-family:맑은 고딕,sans-serif; width:450px; padding:4px;'>"
+        String html = "<html><body style='font-family:\ub9d1\uc740 \uace0\ub515,sans-serif; width:450px; padding:4px;'>"
 
-            // --- 리더기 상태 ---
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px;'>리더기 상태</h2>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px;'>\ub9ac\ub354\uae30 \uc0c1\ud0dc</h2>"
 
-            + "<h3>상태 색상</h3>"
+            + "<h3>\uc0c1\ud0dc \uc0c9\uc0c1</h3>"
             + "<table cellpadding='4' cellspacing='0' border='0'>"
             + "<tr><td><b style='color:#B4B4B4;'>&#9632;</b></td>"
-            +     "<td><b>미연결</b></td><td>리더기와 연결되지 않은 초기 상태</td></tr>"
+            +     "<td><b>\ubbf8\uc5f0\uacb0</b></td><td>\ub9ac\ub354\uae30\uc640 \uc5f0\uacb0\ub418\uc9c0 \uc54a\uc740 \ucd08\uae30 \uc0c1\ud0dc</td></tr>"
             + "<tr><td><b style='color:#FFC800;'>&#9632;</b></td>"
-            +     "<td><b>연결 중</b></td><td>리더기에 TCP 연결을 시도하는 중</td></tr>"
+            +     "<td><b>\uc5f0\uacb0 \uc911</b></td><td>\ub9ac\ub354\uae30\uc5d0 TCP \uc5f0\uacb0\uc744 \uc2dc\ub3c4\ud558\ub294 \uc911</td></tr>"
             + "<tr><td><b style='color:#00B400;'>&#9632;</b></td>"
-            +     "<td><b>연결됨</b></td><td>리더기와 정상 연결된 상태 (안테나 설정 자동 수신 완료)</td></tr>"
+            +     "<td><b>\uc5f0\uacb0\ub428</b></td><td>\ub9ac\ub354\uae30\uc640 \uc815\uc0c1 \uc5f0\uacb0\ub41c \uc0c1\ud0dc (\uc548\ud14c\ub098 \uc124\uc815 \uc790\ub3d9 \uc218\uc2e0 \uc644\ub8cc)</td></tr>"
             + "<tr><td><b style='color:#0078FF;'>&#9632;</b></td>"
-            +     "<td><b>읽기 중</b></td><td>인벤토리 실행 중 (태그 읽기 동작, 점멸)</td></tr>"
+            +     "<td><b>\uc77d\uae30 \uc911</b></td><td>\uc778\ubca4\ud1a0\ub9ac \uc2e4\ud589 \uc911 (\ud0dc\uadf8 \uc77d\uae30 \ub3d9\uc791, \uc810\uba78)</td></tr>"
             + "<tr><td><b style='color:#DC0000;'>&#9632;</b></td>"
-            +     "<td><b>오류</b></td><td>연결 실패 또는 통신 오류 발생</td></tr>"
+            +     "<td><b>\uc624\ub958</b></td><td>\uc5f0\uacb0 \uc2e4\ud328 \ub610\ub294 \ud1b5\uc2e0 \uc624\ub958 \ubc1c\uc0dd</td></tr>"
             + "</table>"
 
-            + "<h3>아이콘 표시</h3>"
+            + "<h3>\uc544\uc774\ucf58 \ud45c\uc2dc</h3>"
             + "<table cellpadding='4' cellspacing='0' border='0'>"
-            + "<tr><td>좌측 색상 바</td><td>현재 리더기 상태를 색상으로 표시</td></tr>"
+            + "<tr><td>\uc88c\uce21 \uc0c9\uc0c1 \ubc14</td><td>\ud604\uc7ac \ub9ac\ub354\uae30 \uc0c1\ud0dc\ub97c \uc0c9\uc0c1\uc73c\ub85c \ud45c\uc2dc</td></tr>"
             + "<tr><td><b style='color:#1E96DC;'>&#9679;</b> B</td>"
-            +     "<td><b>부저</b> &mdash; 파란색: ON / 회색: OFF</td></tr>"
+            +     "<td><b>\ubd80\uc800</b> &mdash; \ud30c\ub780\uc0c9: ON / \ud68c\uc0c9: OFF</td></tr>"
             + "<tr><td><b style='color:#FFB400;'>&#9679;</b> L</td>"
-            +     "<td><b>경광등</b> &mdash; 주황색: ON / 회색: OFF</td></tr>"
+            +     "<td><b>\uacbd\uad11\ub4f1</b> &mdash; \uc8fc\ud669\uc0c9: ON / \ud68c\uc0c9: OFF</td></tr>"
             + "</table>"
 
-            + "<h3>우클릭 메뉴</h3>"
+            + "<h3>\uc6b0\ud074\ub9ad \uba54\ub274</h3>"
             + "<table cellpadding='3' cellspacing='0' border='0'>"
-            + "<tr><td><b>연결 / 연결 해제</b></td><td>개별 리더기 TCP 연결 제어</td></tr>"
-            + "<tr><td><b>인벤토리 시작 / 중지</b></td><td>태그 읽기 동작 제어</td></tr>"
-            + "<tr><td><b>경광등 ON / OFF</b></td><td>리더기 릴레이(경광등) 제어</td></tr>"
-            + "<tr><td><b>부저 ON / OFF</b></td><td>리더기 부저 제어</td></tr>"
-            + "<tr><td><b>안테나 설정</b></td><td>안테나 출력(dBm) 및 드웰시간(ms) 설정</td></tr>"
+            + "<tr><td><b>\uc5f0\uacb0 / \uc5f0\uacb0 \ud574\uc81c</b></td><td>\uac1c\ubcc4 \ub9ac\ub354\uae30 TCP \uc5f0\uacb0 \uc81c\uc5b4</td></tr>"
+            + "<tr><td><b>\uc778\ubca4\ud1a0\ub9ac \uc2dc\uc791 / \uc911\uc9c0</b></td><td>\ud0dc\uadf8 \uc77d\uae30 \ub3d9\uc791 \uc81c\uc5b4</td></tr>"
+            + "<tr><td><b>\uacbd\uad11\ub4f1 ON / OFF</b></td><td>\ub9ac\ub354\uae30 \ub9b4\ub808\uc774(\uacbd\uad11\ub4f1) \uc81c\uc5b4</td></tr>"
+            + "<tr><td><b>\ubd80\uc800 ON / OFF</b></td><td>\ub9ac\ub354\uae30 \ubd80\uc800 \uc81c\uc5b4</td></tr>"
+            + "<tr><td><b>\uc548\ud14c\ub098 \uc124\uc815</b></td><td>\uc548\ud14c\ub098 \ucd9c\ub825(dBm) \ubc0f \ub4dc\uc6f0\uc2dc\uac04(ms) \uc124\uc815</td></tr>"
             + "</table>"
 
-            + "<h3>연결 시 설정 동작</h3>"
+            + "<h3>\uc5f0\uacb0 \uc2dc \uc124\uc815 \ub3d9\uc791</h3>"
             + "<table cellpadding='3' cellspacing='0' border='0'>"
-            + "<tr><td><b>안테나/드웰</b></td><td>리더기의 실제 설정값을 자동으로 가져와 표시 (FETCH)</td></tr>"
-            + "<tr><td><b>부저</b></td><td>저장된 설정값을 리더기에 적용 (PUSH)</td></tr>"
-            + "<tr><td><b>설정 저장</b></td><td>가져온 설정값이 readers.cfg에 자동 저장됨</td></tr>"
+            + "<tr><td><b>\uc548\ud14c\ub098/\ub4dc\uc6f0</b></td><td>\ub9ac\ub354\uae30\uc758 \uc2e4\uc81c \uc124\uc815\uac12\uc744 \uc790\ub3d9\uc73c\ub85c \uac00\uc838\uc640 \ud45c\uc2dc (FETCH)</td></tr>"
+            + "<tr><td><b>\uacbd\uad11\ub4f1/\ubd80\uc800</b></td><td>\ubc18\ucd9c\uc54c\ub9bc \uc774\ubca4\ud2b8 \ubc1c\uc0dd \uc2dc\uc5d0\ub9cc \ub3d9\uc791 (\uc774\ubca4\ud2b8 \uae30\ubc18)</td></tr>"
+            + "<tr><td><b>\uc124\uc815 \uc800\uc7a5</b></td><td>\uac00\uc838\uc628 \uc124\uc815\uac12\uc774 readers.cfg\uc5d0 \uc790\ub3d9 \uc800\uc7a5\ub428</td></tr>"
             + "</table>"
 
-            // --- 경광등 ---
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>경광등 (반출알림)</h2>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>\ubc18\ucd9c\uc54c\ub9bc (\uacbd\uad11\ub4f1 + \ubd80\uc800)</h2>"
             + "<table cellpadding='4' cellspacing='0' border='0'>"
-            + "<tr><td><b>동작 조건</b></td><td>반출알림 감지 + 리더기 설정에서 경광등 '적용'(1)</td></tr>"
-            + "<tr><td><b>릴레이 채널</b></td><td>릴레이 2번 = <b style='color:#DC0000;'>빨간등</b></td></tr>"
-            + "<tr><td><b>점등 시간</b></td><td><b>5초</b> 후 자동 소등</td></tr>"
-            + "<tr><td><b>재감지 시</b></td><td>타이머 리셋 (5초 재시작)</td></tr>"
-            + "<tr><td><b>알림 중복제거</b></td><td>같은 EPC 30초 내 재알림 방지</td></tr>"
+            + "<tr><td><b>\ub3d9\uc791 \uc870\uac74</b></td><td>\ubc18\ucd9c\uc54c\ub9bc \uac10\uc9c0 + \ub9ac\ub354\uae30 \uc124\uc815\uc5d0\uc11c \uacbd\uad11\ub4f1/\ubd80\uc800 '\uc801\uc6a9'(1)</td></tr>"
+            + "<tr><td><b>\uacbd\uad11\ub4f1</b></td><td>\ub9b4\ub808\uc774 1\ubc88 = <b style='color:#DC0000;'>\ube68\uac04\ub4f1</b> (5\ucd08 \uc790\ub3d9 \uc18c\ub4f1)</td></tr>"
+            + "<tr><td><b>\ubd80\uc800</b></td><td>\ub9b4\ub808\uc774 2\ubc88 = <b style='color:#1E96DC;'>\ubd80\uc800</b> (5\ucd08 \uc790\ub3d9 OFF)</td></tr>"
+            + "<tr><td><b>\uc7ac\uac10\uc9c0 \uc2dc</b></td><td>\uac01\uac01 \ud0c0\uc774\uba38 \ub9ac\uc14b (5\ucd08 \uc7ac\uc2dc\uc791)</td></tr>"
+            + "<tr><td><b>\uc54c\ub9bc \uc911\ubcf5\uc81c\uac70</b></td><td>\uac19\uc740 EPC 30\ucd08 \ub0b4 \uc7ac\uc54c\ub9bc \ubc29\uc9c0</td></tr>"
             + "</table>"
 
-            + "<h3>릴레이 채널 매핑</h3>"
+            + "<h3>\ub9b4\ub808\uc774 \ucc44\ub110 \ub9e4\ud551</h3>"
             + "<table cellpadding='3' cellspacing='0' border='1' style='border-collapse:collapse;'>"
-            + "<tr style='background:#E8E8E8;'><th>릴레이</th><th>색상</th><th>용도</th></tr>"
-            + "<tr><td align='center'>0</td><td>-</td><td>미사용</td></tr>"
-            + "<tr><td align='center'>1</td><td style='color:#00A000;'><b>녹색</b></td><td>수동 제어 (우클릭 메뉴)</td></tr>"
-            + "<tr><td align='center'>2</td><td style='color:#DC0000;'><b>빨간</b></td><td>반출알림 자동 점등 (5초)</td></tr>"
+            + "<tr style='background:#E8E8E8;'><th>\ub9b4\ub808\uc774</th><th>\uc7a5\uce58</th><th>\uc6a9\ub3c4</th></tr>"
+            + "<tr><td align='center'>0</td><td>-</td><td>\ubbf8\uc0ac\uc6a9</td></tr>"
+            + "<tr><td align='center'>1</td><td style='color:#DC0000;'><b>\ube68\uac04\ub4f1</b></td><td>\ubc18\ucd9c\uc54c\ub9bc \uc790\ub3d9 \uc810\ub4f1 (5\ucd08)</td></tr>"
+            + "<tr><td align='center'>2</td><td style='color:#1E96DC;'><b>\ubd80\uc800</b></td><td>\ubc18\ucd9c\uc54c\ub9bc \uc790\ub3d9 \uc6b8\ub9bc (5\ucd08)</td></tr>"
             + "</table>"
 
-            // --- 태그 데이터 ---
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>태그 데이터</h2>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>\ud0dc\uadf8 \ub370\uc774\ud130</h2>"
             + "<table cellpadding='4' cellspacing='0' border='0'>"
-            + "<tr><td><b>시간</b></td><td>태그가 마지막으로 읽힌 시각 (yyyy-MM-dd HH:mm:ss)</td></tr>"
-            + "<tr><td><b>리더기</b></td><td>태그를 읽은 리더기 이름</td></tr>"
-            + "<tr><td><b>EPC</b></td><td>태그의 EPC(Electronic Product Code) 16진수 값</td></tr>"
-            + "<tr><td><b>RSSI</b></td><td>수신 신호 강도 (dBm), 값이 클수록 가까이 위치</td></tr>"
-            + "<tr><td><b>횟수</b></td><td>동일 태그가 읽힌 누적 횟수 (중복제거 모드)</td></tr>"
-            + "<tr><td style='background:#FFD2D2;color:#B40000;'><b>반출알림 행</b></td>"
-            +     "<td>미허가 반출 자산 (경광등 빨간등 + DB 기록)</td></tr>"
-            + "<tr><td style='background:#D2F0D2;color:#006E00;'><b>반출허용 행</b></td>"
-            +     "<td>반출 허용된 자산 (정상 반출)</td></tr>"
+            + "<tr><td><b>\uc2dc\uac04</b></td><td>\ud0dc\uadf8\uac00 \ub9c8\uc9c0\ub9c9\uc73c\ub85c \uc77d\ud78c \uc2dc\uac01 (yyyy-MM-dd HH:mm:ss)</td></tr>"
+            + "<tr><td><b>\ub9ac\ub354\uae30</b></td><td>\ud0dc\uadf8\ub97c \uc77d\uc740 \ub9ac\ub354\uae30 \uc774\ub984</td></tr>"
+            + "<tr><td><b>EPC</b></td><td>\ud0dc\uadf8\uc758 EPC(Electronic Product Code) 16\uc9c4\uc218 \uac12</td></tr>"
+            + "<tr><td><b>RSSI</b></td><td>\uc218\uc2e0 \uc2e0\ud638 \uac15\ub3c4 (dBm), \uac12\uc774 \ud074\uc218\ub85d \uac00\uae4c\uc774 \uc704\uce58</td></tr>"
+            + "<tr><td><b>\ud69f\uc218</b></td><td>\ub3d9\uc77c \ud0dc\uadf8\uac00 \uc77d\ud78c \ub204\uc801 \ud69f\uc218 (\uc911\ubcf5\uc81c\uac70 \ubaa8\ub4dc)</td></tr>"
+            + "<tr><td style='background:#FFE8E8;color:#B40000;'><b>\ubc18\ucd9c\uc54c\ub9bc \ud589</b></td>"
+            +     "<td>\ubbf8\ud5c8\uac00 \ubc18\ucd9c \uc790\uc0b0 (\uacbd\uad11\ub4f1 \ube68\uac04\ub4f1 + DB \uae30\ub85d)</td></tr>"
+            + "<tr><td style='background:#E8F5E8;color:#006E00;'><b>\ubc18\ucd9c\ud5c8\uc6a9 \ud589</b></td>"
+            +     "<td>\ubc18\ucd9c \ud5c8\uc6a9\ub41c \uc790\uc0b0 (\uc815\uc0c1 \ubc18\ucd9c)</td></tr>"
             + "</table>"
 
-            + "<h3>하단 기능</h3>"
+            + "<h3>\ud558\ub2e8 \uae30\ub2a5</h3>"
             + "<table cellpadding='3' cellspacing='0' border='0'>"
-            + "<tr><td><b>중복제거</b></td><td>체크 시 동일 EPC를 하나의 행으로 병합 (횟수 증가)</td></tr>"
-            + "<tr><td><b>초기화</b></td><td>태그 데이터 전체 삭제</td></tr>"
-            + "<tr><td><b>엑셀 저장</b></td><td>현재 태그 목록을 .xls 파일로 내보내기</td></tr>"
-            + "<tr><td><b>DB 조회</b></td><td>기간을 지정하여 DB에 저장된 태그 이력 조회</td></tr>"
+            + "<tr><td><b>\uc911\ubcf5\uc81c\uac70</b></td><td>\uccb4\ud06c \uc2dc \ub3d9\uc77c EPC\ub97c \ud558\ub098\uc758 \ud589\uc73c\ub85c \ubcd1\ud569 (\ud69f\uc218 \uc99d\uac00)</td></tr>"
+            + "<tr><td><b>\ucd08\uae30\ud654</b></td><td>\ud0dc\uadf8 \ub370\uc774\ud130 \uc804\uccb4 \uc0ad\uc81c</td></tr>"
+            + "<tr><td><b>\uc5d1\uc140 \uc800\uc7a5</b></td><td>\ud604\uc7ac \ud0dc\uadf8 \ubaa9\ub85d\uc744 .xls \ud30c\uc77c\ub85c \ub0b4\ubcf4\ub0b4\uae30</td></tr>"
+            + "<tr><td><b>DB \uc870\ud68c</b></td><td>\uae30\uac04\uc744 \uc9c0\uc815\ud558\uc5ec DB\uc5d0 \uc800\uc7a5\ub41c \ud0dc\uadf8 \uc774\ub825 \uc870\ud68c</td></tr>"
             + "</table>"
 
-            // --- DB 데이터 흐름 ---
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>DB 테이블별 데이터 흐름</h2>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>DB \ud14c\uc774\ube14\ubcc4 \ub370\uc774\ud130 \ud750\ub984</h2>"
             + "<table cellpadding='4' cellspacing='0' border='1' style='border-collapse:collapse;'>"
             + "<tr style='background:#E8E8E8;'>"
-            +   "<th>테이블</th><th>관리 주체</th><th>미들웨어 동작</th><th>시점</th></tr>"
-            + "<tr><td><b>assets</b><br>(자산 마스터)</td>"
-            +   "<td>외부 시스템<br>+ API</td><td>SELECT 조회<br>INSERT/UPDATE</td>"
-            +   "<td>시작 시 + 30초마다<br>메모리 캐시 갱신</td></tr>"
-            + "<tr><td><b>export_permissions</b><br>(반출허용 목록)</td>"
-            +   "<td>외부 시스템</td><td>SELECT 조회<br>(유효기간 체크)</td>"
-            +   "<td>시작 시 + 30초마다<br>메모리 캐시 갱신</td></tr>"
-            + "<tr><td><b>export_alerts</b><br>(반출알림 이력)</td>"
-            +   "<td><b>미들웨어</b></td><td><b>INSERT</b></td>"
-            +   "<td>미허가 반출 감지 시<br>(30초 중복제거)</td></tr>"
-            + "<tr><td><b>tag_reads</b><br>(태그 읽기 이력)</td>"
-            +   "<td><b>미들웨어</b></td><td><b>INSERT</b><br>(배치 처리)</td>"
-            +   "<td>태그 감지 시<br>(캐시 MISS만)</td></tr>"
+            +   "<th>\ud14c\uc774\ube14</th><th>\uad00\ub9ac \uc8fc\uccb4</th><th>\ubbf8\ub4e4\uc6e8\uc5b4 \ub3d9\uc791</th><th>\uc2dc\uc810</th></tr>"
+            + "<tr><td><b>assets</b><br>(\uc790\uc0b0 \ub9c8\uc2a4\ud130)</td>"
+            +   "<td>\uc678\ubd80 \uc2dc\uc2a4\ud15c<br>+ API</td><td>SELECT \uc870\ud68c<br>INSERT/UPDATE</td>"
+            +   "<td>\uc2dc\uc791 \uc2dc + 30\ucd08\ub9c8\ub2e4<br>\uba54\ubaa8\ub9ac \uce90\uc2dc \uac31\uc2e0</td></tr>"
+            + "<tr><td><b>export_permissions</b><br>(\ubc18\ucd9c\ud5c8\uc6a9 \ubaa9\ub85d)</td>"
+            +   "<td>\uc678\ubd80 \uc2dc\uc2a4\ud15c</td><td>SELECT \uc870\ud68c<br>(\uc720\ud6a8\uae30\uac04 \uccb4\ud06c)</td>"
+            +   "<td>\uc2dc\uc791 \uc2dc + 30\ucd08\ub9c8\ub2e4<br>\uba54\ubaa8\ub9ac \uce90\uc2dc \uac31\uc2e0</td></tr>"
+            + "<tr><td><b>export_alerts</b><br>(\ubc18\ucd9c\uc54c\ub9bc \uc774\ub825)</td>"
+            +   "<td><b>\ubbf8\ub4e4\uc6e8\uc5b4</b></td><td><b>INSERT</b></td>"
+            +   "<td>\ubbf8\ud5c8\uac00 \ubc18\ucd9c \uac10\uc9c0 \uc2dc<br>(30\ucd08 \uc911\ubcf5\uc81c\uac70)</td></tr>"
+            + "<tr><td><b>tag_reads</b><br>(\ud0dc\uadf8 \uc77d\uae30 \uc774\ub825)</td>"
+            +   "<td><b>\ubbf8\ub4e4\uc6e8\uc5b4</b></td><td><b>INSERT</b><br>(\ubc30\uce58 \ucc98\ub9ac)</td>"
+            +   "<td>\ud0dc\uadf8 \uac10\uc9c0 \uc2dc<br>(\uce90\uc2dc MISS\ub9cc)</td></tr>"
             + "</table>"
 
-            + "<h3>미허가 반출 판단 흐름</h3>"
+            + "<h3>\ubbf8\ud5c8\uac00 \ubc18\ucd9c \ud310\ub2e8 \ud750\ub984</h3>"
             + "<p style='font-size:11px; line-height:1.6;'>"
-            + "태그 감지 &rarr; assets에 EPC 존재? &rarr; <b>Yes</b>: export_permissions에 유효 허용 있음? "
-            + "&rarr; <b>No</b>: <span style='color:#B40000;'><b>미허가 반출!</b></span> "
-            + "(경광등 ON 5초 + 빨간 행 표시 + export_alerts INSERT + 로그)<br>"
-            + "&rarr; assets에 없거나 반출 허용됨 &rarr; 일반 태그 처리"
+            + "\ud0dc\uadf8 \uac10\uc9c0 &rarr; assets\uc5d0 EPC \uc874\uc7ac? &rarr; <b>Yes</b>: export_permissions\uc5d0 \uc720\ud6a8 \ud5c8\uc6a9 \uc788\uc74c? "
+            + "&rarr; <b>No</b>: <span style='color:#B40000;'><b>\ubbf8\ud5c8\uac00 \ubc18\ucd9c!</b></span> "
+            + "(\uacbd\uad11\ub4f1 ON 5\ucd08 + \ube68\uac04 \ud589 \ud45c\uc2dc + export_alerts INSERT + \ub85c\uadf8)<br>"
+            + "&rarr; assets\uc5d0 \uc5c6\uac70\ub098 \ubc18\ucd9c \ud5c8\uc6a9\ub428 &rarr; \uc77c\ubc18 \ud0dc\uadf8 \ucc98\ub9ac"
             + "</p>"
 
-            // --- 외부 API ---
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>외부 API (REST)</h2>"
-            + "<p>포트 <b>18080</b>에서 HTTP REST API를 제공합니다.</p>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>\uc678\ubd80 API (REST)</h2>"
+            + "<p>\ud3ec\ud2b8 <b>18080</b>\uc5d0\uc11c HTTP REST API\ub97c \uc81c\uacf5\ud569\ub2c8\ub2e4.</p>"
 
-            + "<h3>조회 API (GET)</h3>"
+            + "<h3>\uc870\ud68c API (GET)</h3>"
             + "<table cellpadding='3' cellspacing='0' border='1' style='border-collapse:collapse;'>"
-            + "<tr style='background:#E8E8E8;'><th>URL</th><th>설명</th></tr>"
-            + "<tr><td><code>/api/readers</code></td><td>리더기 설정정보 전체 조회</td></tr>"
-            + "<tr><td><code>/api/assets</code></td><td>자산 테이블 조회</td></tr>"
-            + "<tr><td><code>/api/export-permissions</code></td><td>반출허용 목록 조회</td></tr>"
-            + "<tr><td><code>/api/export-alerts?from=...&amp;to=...</code></td><td>반출알림 이력 조회 (기간)</td></tr>"
+            + "<tr style='background:#E8E8E8;'><th>URL</th><th>\uc124\uba85</th></tr>"
+            + "<tr><td><code>/api/readers</code></td><td>\ub9ac\ub354\uae30 \uc124\uc815\uc815\ubcf4 \uc804\uccb4 \uc870\ud68c</td></tr>"
+            + "<tr><td><code>/api/assets</code></td><td>\uc790\uc0b0 \ud14c\uc774\ube14 \uc870\ud68c</td></tr>"
+            + "<tr><td><code>/api/export-permissions</code></td><td>\ubc18\ucd9c\ud5c8\uc6a9 \ubaa9\ub85d \uc870\ud68c</td></tr>"
+            + "<tr><td><code>/api/export-alerts?from=...&amp;to=...</code></td><td>\ubc18\ucd9c\uc54c\ub9bc \uc774\ub825 \uc870\ud68c (\uae30\uac04)</td></tr>"
             + "</table>"
 
-            + "<h3>제어 API (POST)</h3>"
+            + "<h3>\uc81c\uc5b4 API (POST)</h3>"
             + "<table cellpadding='3' cellspacing='0' border='1' style='border-collapse:collapse;'>"
-            + "<tr style='background:#E8E8E8;'><th>URL</th><th>설명</th></tr>"
-            + "<tr><td><code>/api/control/connect-all</code></td><td>전체 리더기 연결</td></tr>"
-            + "<tr><td><code>/api/control/disconnect-all</code></td><td>전체 리더기 연결 해제</td></tr>"
-            + "<tr><td><code>/api/control/start-inventory</code></td><td>전체 인벤토리 시작</td></tr>"
-            + "<tr><td><code>/api/control/stop-inventory</code></td><td>전체 인벤토리 중지</td></tr>"
+            + "<tr style='background:#E8E8E8;'><th>URL</th><th>\uc124\uba85</th></tr>"
+            + "<tr><td><code>/api/control/connect-all</code></td><td>\uc804\uccb4 \ub9ac\ub354\uae30 \uc5f0\uacb0</td></tr>"
+            + "<tr><td><code>/api/control/disconnect-all</code></td><td>\uc804\uccb4 \ub9ac\ub354\uae30 \uc5f0\uacb0 \ud574\uc81c</td></tr>"
+            + "<tr><td><code>/api/control/start-inventory</code></td><td>\uc804\uccb4 \uc778\ubca4\ud1a0\ub9ac \uc2dc\uc791</td></tr>"
+            + "<tr><td><code>/api/control/stop-inventory</code></td><td>\uc804\uccb4 \uc778\ubca4\ud1a0\ub9ac \uc911\uc9c0</td></tr>"
             + "</table>"
 
-            + "<h3>수정 API</h3>"
+            + "<h3>\uc218\uc815 API</h3>"
             + "<table cellpadding='3' cellspacing='0' border='1' style='border-collapse:collapse;'>"
-            + "<tr style='background:#E8E8E8;'><th>Method</th><th>URL</th><th>설명</th></tr>"
-            + "<tr><td>PUT</td><td><code>/api/readers/{name}</code></td><td>리더기 설정 수정</td></tr>"
-            + "<tr><td>POST</td><td><code>/api/assets</code></td><td>자산 추가</td></tr>"
-            + "<tr><td>PUT</td><td><code>/api/assets/{id}</code></td><td>자산 수정</td></tr>"
-            + "<tr><td>POST</td><td><code>/api/export-permissions</code></td><td>반출허용 추가</td></tr>"
-            + "<tr><td>DELETE</td><td><code>/api/export-permissions/{id}</code></td><td>반출허용 삭제</td></tr>"
-            + "<tr><td>GET</td><td><code>/api/mask</code></td><td>EPC Mask 조회</td></tr>"
-            + "<tr><td>PUT</td><td><code>/api/mask</code></td><td>EPC Mask 설정</td></tr>"
+            + "<tr style='background:#E8E8E8;'><th>Method</th><th>URL</th><th>\uc124\uba85</th></tr>"
+            + "<tr><td>PUT</td><td><code>/api/readers/{name}</code></td><td>\ub9ac\ub354\uae30 \uc124\uc815 \uc218\uc815</td></tr>"
+            + "<tr><td>POST</td><td><code>/api/assets</code></td><td>\uc790\uc0b0 \ucd94\uac00</td></tr>"
+            + "<tr><td>PUT</td><td><code>/api/assets/{id}</code></td><td>\uc790\uc0b0 \uc218\uc815</td></tr>"
+            + "<tr><td>POST</td><td><code>/api/export-permissions</code></td><td>\ubc18\ucd9c\ud5c8\uc6a9 \ucd94\uac00</td></tr>"
+            + "<tr><td>DELETE</td><td><code>/api/export-permissions/{id}</code></td><td>\ubc18\ucd9c\ud5c8\uc6a9 \uc0ad\uc81c</td></tr>"
+            + "<tr><td>GET</td><td><code>/api/mask</code></td><td>EPC Mask \uc870\ud68c</td></tr>"
+            + "<tr><td>PUT</td><td><code>/api/mask</code></td><td>EPC Mask \uc124\uc815</td></tr>"
             + "</table>"
 
-            + "<h3>응답 형식 (JSON)</h3>"
+            + "<h3>\uc751\ub2f5 \ud615\uc2dd (JSON)</h3>"
             + "<table cellpadding='3' cellspacing='0' border='0'>"
-            + "<tr><td><b>성공</b></td><td><code>{\"status\":\"ok\",\"data\":[...]}</code></td></tr>"
-            + "<tr><td><b>실패</b></td><td><code>{\"status\":\"error\",\"message\":\"...\"}</code></td></tr>"
+            + "<tr><td><b>\uc131\uacf5</b></td><td><code>{\"status\":\"ok\",\"data\":[...]}</code></td></tr>"
+            + "<tr><td><b>\uc2e4\ud328</b></td><td><code>{\"status\":\"error\",\"message\":\"...\"}</code></td></tr>"
             + "</table>"
 
             + "<h3>Swagger UI</h3>"
-            + "<p><code>http://localhost:18080/swagger</code> &mdash; 브라우저에서 API 테스트 가능</p>"
+            + "<p><code>http://localhost:18080/swagger</code> &mdash; \ube0c\ub77c\uc6b0\uc800\uc5d0\uc11c API \ud14c\uc2a4\ud2b8 \uac00\ub2a5</p>"
 
-            // --- EPC Mask 필터 ---
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>EPC Mask 필터</h2>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>EPC Mask \ud544\ud130</h2>"
             + "<table cellpadding='4' cellspacing='0' border='0'>"
-            + "<tr><td><b>설정 위치</b></td><td>설정 다이얼로그 상단 EPC Mask 입력 필드</td></tr>"
-            + "<tr><td><b>동작</b></td><td>EPC가 mask 값으로 시작하는 태그만 처리 (대소문자 무시)</td></tr>"
-            + "<tr><td><b>빈 값</b></td><td>모든 태그를 처리 (필터 비활성)</td></tr>"
-            + "<tr><td><b>저장 파일</b></td><td>readers.cfg의 <code>MASK=</code> 라인</td></tr>"
-            + "<tr><td><b>적용 범위</b></td><td>모든 리더기에 공통 적용 (글로벌 설정)</td></tr>"
-            + "<tr><td><b>재시작</b></td><td>미들웨어 재시작 불필요 (설정 저장 즉시 적용)</td></tr>"
+            + "<tr><td><b>\uc124\uc815 \uc704\uce58</b></td><td>\uc124\uc815 \ub2e4\uc774\uc5bc\ub85c\uadf8 \uc0c1\ub2e8 EPC Mask \uc785\ub825 \ud544\ub4dc</td></tr>"
+            + "<tr><td><b>\ub3d9\uc791</b></td><td>EPC\uac00 mask \uac12\uc73c\ub85c \uc2dc\uc791\ud558\ub294 \ud0dc\uadf8\ub9cc \ucc98\ub9ac (\ub300\uc18c\ubb38\uc790 \ubb34\uc2dc)</td></tr>"
+            + "<tr><td><b>\ube48 \uac12</b></td><td>\ubaa8\ub4e0 \ud0dc\uadf8\ub97c \ucc98\ub9ac (\ud544\ud130 \ube44\ud65c\uc131)</td></tr>"
+            + "<tr><td><b>\uc800\uc7a5 \ud30c\uc77c</b></td><td>readers.cfg\uc758 <code>MASK=</code> \ub77c\uc778</td></tr>"
+            + "<tr><td><b>\uc801\uc6a9 \ubc94\uc704</b></td><td>\ubaa8\ub4e0 \ub9ac\ub354\uae30\uc5d0 \uacf5\ud1b5 \uc801\uc6a9 (\uae00\ub85c\ubc8c \uc124\uc815)</td></tr>"
+            + "<tr><td><b>\uc7ac\uc2dc\uc791</b></td><td>\ubbf8\ub4e4\uc6e8\uc5b4 \uc7ac\uc2dc\uc791 \ubd88\ud544\uc694 (\uc124\uc815 \uc800\uc7a5 \uc989\uc2dc \uc801\uc6a9)</td></tr>"
             + "</table>"
-            + "<p style='font-size:11px;'>예: MASK=0420 설정 시 EPC가 0420으로 시작하는 태그만 표시/저장됩니다.</p>"
+            + "<p style='font-size:11px;'>\uc608: MASK=0420 \uc124\uc815 \uc2dc EPC\uac00 0420\uc73c\ub85c \uc2dc\uc791\ud558\ub294 \ud0dc\uadf8\ub9cc \ud45c\uc2dc/\uc800\uc7a5\ub429\ub2c8\ub2e4.</p>"
 
-            // --- 로그 ---
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>로그</h2>"
-            + "<p>리더기 연결, 명령 전송, 오류 등 미들웨어의 모든 동작 이력을 표시합니다.</p>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>\ub85c\uadf8</h2>"
+            + "<p>\ub9ac\ub354\uae30 \uc5f0\uacb0, \uba85\ub839 \uc804\uc1a1, \uc624\ub958 \ub4f1 \ubbf8\ub4e4\uc6e8\uc5b4\uc758 \ubaa8\ub4e0 \ub3d9\uc791 \uc774\ub825\uc744 \ud45c\uc2dc\ud569\ub2c8\ub2e4.</p>"
             + "<table cellpadding='3' cellspacing='0' border='0'>"
-            + "<tr><td><b>포맷</b></td><td><code>[시간] [리더기명] 메시지</code></td></tr>"
-            + "<tr><td><b>최대</b></td><td>1,000줄 (초과 시 오래된 로그 자동 삭제)</td></tr>"
-            + "<tr><td><b>로그 저장</b></td><td>현재 로그를 .txt 파일로 저장</td></tr>"
-            + "<tr><td><b>로그 지우기</b></td><td>화면의 로그를 모두 삭제</td></tr>"
+            + "<tr><td><b>\ud3ec\ub9f7</b></td><td><code>[\uc2dc\uac04] [\ub9ac\ub354\uae30\uba85] \uba54\uc2dc\uc9c0</code></td></tr>"
+            + "<tr><td><b>\ucd5c\ub300</b></td><td>1,000\uc904 (\ucd08\uacfc \uc2dc \uc624\ub798\ub41c \ub85c\uadf8 \uc790\ub3d9 \uc0ad\uc81c)</td></tr>"
+            + "<tr><td><b>\ub85c\uadf8 \uc800\uc7a5</b></td><td>\ud604\uc7ac \ub85c\uadf8\ub97c .txt \ud30c\uc77c\ub85c \uc800\uc7a5</td></tr>"
+            + "<tr><td><b>\ub85c\uadf8 \uc9c0\uc6b0\uae30</b></td><td>\ud654\uba74\uc758 \ub85c\uadf8\ub97c \ubaa8\ub450 \uc0ad\uc81c</td></tr>"
             + "</table>"
 
             + "</body></html>";
@@ -485,45 +518,35 @@ public class MainFrame extends JFrame {
         JScrollPane scrollPane = new JScrollPane(helpPane);
         scrollPane.setPreferredSize(new Dimension(540, 600));
 
-        JOptionPane.showMessageDialog(this, scrollPane, "도움말", JOptionPane.PLAIN_MESSAGE);
+        JOptionPane.showMessageDialog(this, scrollPane, "\ub3c4\uc6c0\ub9d0", JOptionPane.PLAIN_MESSAGE);
     }
 
-    /** 자산 DB 조회 다이얼로그 (4개 탭: 자산목록, 반출허용, 반출알림, 캐시상태) */
     private void showAssetDbDialog() {
         if (!DatabaseManager.getInstance().isAvailable()) {
             JOptionPane.showMessageDialog(this,
-                "데이터베이스에 연결되어 있지 않습니다.",
-                "자산 DB", JOptionPane.WARNING_MESSAGE);
+                "\ub370\uc774\ud130\ubca0\uc774\uc2a4\uc5d0 \uc5f0\uacb0\ub418\uc5b4 \uc788\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.",
+                "\uc790\uc0b0 DB", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         JTabbedPane tabbedPane = new JTabbedPane();
-        tabbedPane.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
+        tabbedPane.setFont(Theme.BODY);
 
-        // --- 탭 1: 자산 목록 ---
-        tabbedPane.addTab("자산 목록", createAssetsTab());
-
-        // --- 탭 2: 반출허용 목록 ---
-        tabbedPane.addTab("반출허용 목록", createPermissionsTab());
-
-        // --- 탭 3: 반출알림 이력 ---
-        tabbedPane.addTab("반출알림 이력", createAlertsTab());
-
-        // --- 탭 4: 캐시 상태 ---
-        tabbedPane.addTab("캐시 상태", createCacheTab());
+        tabbedPane.addTab("\uc790\uc0b0 \ubaa9\ub85d", createAssetsTab());
+        tabbedPane.addTab("\ubc18\ucd9c\ud5c8\uc6a9 \ubaa9\ub85d", createPermissionsTab());
+        tabbedPane.addTab("\ubc18\ucd9c\uc54c\ub9bc \uc774\ub825", createAlertsTab());
+        tabbedPane.addTab("\uce90\uc2dc \uc0c1\ud0dc", createCacheTab());
 
         tabbedPane.setPreferredSize(new Dimension(750, 450));
 
-        JOptionPane.showMessageDialog(this, tabbedPane, "자산 DB 조회", JOptionPane.PLAIN_MESSAGE);
+        JOptionPane.showMessageDialog(this, tabbedPane, "\uc790\uc0b0 DB \uc870\ud68c", JOptionPane.PLAIN_MESSAGE);
     }
 
-    /** 자산 목록 탭 생성 */
     private JPanel createAssetsTab() {
         JPanel panel = new JPanel(new BorderLayout());
-        String[] cols = {"자산번호", "EPC", "자산명", "부서", "등록일시", "보유여부"};
+        String[] cols = {"\uc790\uc0b0\ubc88\ud638", "EPC", "\uc790\uc0b0\uba85", "\ubd80\uc11c", "\ub4f1\ub85d\uc77c\uc2dc", "\ubcf4\uc720\uc5ec\ubd80"};
         List<String[]> data = AssetRepository.getInstance().queryAssets();
 
-        // queryAssets returns: [assetNumber, epc, assetName, department, createdAt, possession, id]
         Object[][] rows = new Object[data.size()][cols.length];
         for (int i = 0; i < data.size(); i++) {
             String[] row = data.get(i);
@@ -538,18 +561,17 @@ public class MainFrame extends JFrame {
         table.getColumnModel().getColumn(4).setPreferredWidth(130);
         table.getColumnModel().getColumn(5).setPreferredWidth(60);
 
-        JLabel countLabel = new JLabel("  총 " + data.size() + "건");
-        countLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+        JLabel countLabel = new JLabel("  \ucd1d " + data.size() + "\uac74");
+        countLabel.setFont(Theme.SMALL);
 
         panel.add(new JScrollPane(table), BorderLayout.CENTER);
         panel.add(countLabel, BorderLayout.SOUTH);
         return panel;
     }
 
-    /** 반출허용 목록 탭 생성 */
     private JPanel createPermissionsTab() {
         JPanel panel = new JPanel(new BorderLayout());
-        String[] cols = {"EPC", "자산번호", "자산명", "허용시작", "허용종료", "사유", "상태"};
+        String[] cols = {"EPC", "\uc790\uc0b0\ubc88\ud638", "\uc790\uc0b0\uba85", "\ud5c8\uc6a9\uc2dc\uc791", "\ud5c8\uc6a9\uc885\ub8cc", "\uc0ac\uc720", "\uc0c1\ud0dc"};
         List<String[]> data = AssetRepository.getInstance().queryExportPermissions();
 
         Object[][] rows = new Object[data.size()][cols.length];
@@ -564,7 +586,6 @@ public class MainFrame extends JFrame {
         table.getColumnModel().getColumn(5).setPreferredWidth(100);
         table.getColumnModel().getColumn(6).setPreferredWidth(40);
 
-        // 상태 컬럼 색상 렌더러
         table.getColumnModel().getColumn(6).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object value,
@@ -572,7 +593,7 @@ public class MainFrame extends JFrame {
                 Component c = super.getTableCellRendererComponent(t, value, isSelected, hasFocus, row, column);
                 setHorizontalAlignment(CENTER);
                 if (!isSelected && value != null) {
-                    if ("유효".equals(value.toString())) {
+                    if ("\uc720\ud6a8".equals(value.toString())) {
                         c.setForeground(new Color(0, 140, 0));
                     } else {
                         c.setForeground(new Color(180, 0, 0));
@@ -582,38 +603,34 @@ public class MainFrame extends JFrame {
             }
         });
 
-        JLabel countLabel = new JLabel("  총 " + data.size() + "건");
-        countLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+        JLabel countLabel = new JLabel("  \ucd1d " + data.size() + "\uac74");
+        countLabel.setFont(Theme.SMALL);
 
         panel.add(new JScrollPane(table), BorderLayout.CENTER);
         panel.add(countLabel, BorderLayout.SOUTH);
         return panel;
     }
 
-    /** 반출알림 이력 탭 생성 */
     private JPanel createAlertsTab() {
         JPanel panel = new JPanel(new BorderLayout());
 
-        // 상단: 기간 선택
         JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         filterPanel.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         String today = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
         JTextField fromField = new JTextField(today + " 00:00:00", 16);
         JTextField toField = new JTextField(sdf.format(new Date()), 16);
-        fromField.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
-        toField.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
-        JButton queryBtn = new JButton("조회");
-        queryBtn.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+        fromField.setFont(Theme.SMALL);
+        toField.setFont(Theme.SMALL);
+        JButton queryBtn = Theme.createFlatButton("\uc870\ud68c", null);
 
-        filterPanel.add(new JLabel("시작:"));
+        filterPanel.add(new JLabel("\uc2dc\uc791:"));
         filterPanel.add(fromField);
-        filterPanel.add(new JLabel("  종료:"));
+        filterPanel.add(new JLabel("  \uc885\ub8cc:"));
         filterPanel.add(toField);
         filterPanel.add(queryBtn);
 
-        // 테이블
-        String[] cols = {"알림시간", "리더기", "EPC", "자산번호", "자산명", "RSSI"};
+        String[] cols = {"\uc54c\ub9bc\uc2dc\uac04", "\ub9ac\ub354\uae30", "EPC", "\uc790\uc0b0\ubc88\ud638", "\uc790\uc0b0\uba85", "RSSI"};
         JTable table = createStyledTable(new Object[0][cols.length], cols);
         table.getColumnModel().getColumn(0).setPreferredWidth(130);
         table.getColumnModel().getColumn(1).setPreferredWidth(70);
@@ -622,10 +639,9 @@ public class MainFrame extends JFrame {
         table.getColumnModel().getColumn(4).setPreferredWidth(100);
         table.getColumnModel().getColumn(5).setPreferredWidth(40);
 
-        JLabel countLabel = new JLabel("  조회 버튼을 누르세요");
-        countLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+        JLabel countLabel = new JLabel("  \uc870\ud68c \ubc84\ud2bc\uc744 \ub204\ub974\uc138\uc694");
+        countLabel.setFont(Theme.SMALL);
 
-        // 조회 버튼 동작
         queryBtn.addActionListener(e -> {
             List<String[]> data = AssetRepository.getInstance()
                 .queryExportAlerts(fromField.getText().trim(), toField.getText().trim());
@@ -634,16 +650,16 @@ public class MainFrame extends JFrame {
             table.setModel(new javax.swing.table.DefaultTableModel(rows, cols) {
                 @Override public boolean isCellEditable(int r, int c) { return false; }
             });
+            Theme.styleTable(table);
             table.getColumnModel().getColumn(0).setPreferredWidth(130);
             table.getColumnModel().getColumn(1).setPreferredWidth(70);
             table.getColumnModel().getColumn(2).setPreferredWidth(200);
             table.getColumnModel().getColumn(3).setPreferredWidth(80);
             table.getColumnModel().getColumn(4).setPreferredWidth(100);
             table.getColumnModel().getColumn(5).setPreferredWidth(40);
-            countLabel.setText("  총 " + data.size() + "건");
+            countLabel.setText("  \ucd1d " + data.size() + "\uac74");
         });
 
-        // 초기 조회 실행
         queryBtn.doClick();
 
         panel.add(filterPanel, BorderLayout.NORTH);
@@ -652,36 +668,30 @@ public class MainFrame extends JFrame {
         return panel;
     }
 
-    /** 캐시 상태 탭 생성 */
     private JPanel createCacheTab() {
         JPanel panel = new JPanel(new BorderLayout());
 
-        // 상단: 요약 + 버튼
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JLabel summaryLabel = new JLabel();
-        summaryLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+        summaryLabel.setFont(Theme.SMALL);
 
-        JButton refreshBtn = new JButton("DB 갱신");
-        refreshBtn.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
-        refreshBtn.setToolTipText("AssetRepository.refreshCache() 즉시 실행");
+        JButton refreshBtn = Theme.createFlatButton("DB \uac31\uc2e0", null);
+        refreshBtn.setToolTipText("AssetRepository.refreshCache() \uc989\uc2dc \uc2e4\ud589");
 
-        JButton reloadBtn = new JButton("화면 새로고침");
-        reloadBtn.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+        JButton reloadBtn = Theme.createFlatButton("\ud654\uba74 \uc0c8\ub85c\uace0\uce68", null);
 
         topPanel.add(summaryLabel);
         topPanel.add(Box.createHorizontalStrut(10));
         topPanel.add(refreshBtn);
         topPanel.add(reloadBtn);
 
-        // 중앙: 4개 캐시 서브탭
         JTabbedPane cacheTabs = new JTabbedPane(JTabbedPane.TOP);
-        cacheTabs.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+        cacheTabs.setFont(Theme.SMALL);
 
-        // 테이블 참조 (새로고침용)
-        String[] assetCols = {"EPC (정규화)", "자산번호", "자산명", "부서"};
+        String[] assetCols = {"EPC (\uc815\uaddc\ud654)", "\uc790\uc0b0\ubc88\ud638", "\uc790\uc0b0\uba85", "\ubd80\uc11c"};
         JTable assetTable = createStyledTable(new Object[0][4], assetCols);
 
-        String[] permitCols = {"EPC (정규화)"};
+        String[] permitCols = {"EPC (\uc815\uaddc\ud654)"};
         JTable permitTable = createStyledTable(new Object[0][1], permitCols);
 
         String[] tagCacheCols = {"EPC"};
@@ -690,16 +700,14 @@ public class MainFrame extends JFrame {
         String[] alertCacheCols = {"EPC"};
         JTable alertCacheTable = createStyledTable(new Object[0][1], alertCacheCols);
 
-        cacheTabs.addTab("자산 캐시", new JScrollPane(assetTable));
-        cacheTabs.addTab("반출허용 캐시", new JScrollPane(permitTable));
-        cacheTabs.addTab("태그 DB캐시 (Caffeine)", new JScrollPane(tagCacheTable));
-        cacheTabs.addTab("알림 중복제거 (Caffeine)", new JScrollPane(alertCacheTable));
+        cacheTabs.addTab("\uc790\uc0b0 \uce90\uc2dc", new JScrollPane(assetTable));
+        cacheTabs.addTab("\ubc18\ucd9c\ud5c8\uc6a9 \uce90\uc2dc", new JScrollPane(permitTable));
+        cacheTabs.addTab("\ud0dc\uadf8 DB\uce90\uc2dc (Caffeine)", new JScrollPane(tagCacheTable));
+        cacheTabs.addTab("\uc54c\ub9bc \uc911\ubcf5\uc81c\uac70 (Caffeine)", new JScrollPane(alertCacheTable));
 
-        // 데이터 로드 Runnable
         Runnable loadCacheData = () -> {
             AssetRepository repo = AssetRepository.getInstance();
 
-            // 자산 캐시
             Map<String, AssetRepository.AssetInfo> assetMap = repo.getAssetMapCopy();
             List<String[]> assetRows = new ArrayList<>();
             for (Map.Entry<String, AssetRepository.AssetInfo> entry : assetMap.entrySet()) {
@@ -717,7 +725,6 @@ public class MainFrame extends JFrame {
                 @Override public boolean isCellEditable(int r, int c) { return false; }
             });
 
-            // 반출허용 캐시
             Set<String> permitted = repo.getPermittedEpcsCopy();
             Object[][] pRows = new Object[permitted.size()][1];
             int pi = 0;
@@ -726,7 +733,6 @@ public class MainFrame extends JFrame {
                 @Override public boolean isCellEditable(int r, int c) { return false; }
             });
 
-            // 태그 DB캐시 (Caffeine)
             Set<String> tagKeys = tagDataPanel.getDbDedupCacheKeys();
             Object[][] tRows = new Object[tagKeys.size()][1];
             int ti = 0;
@@ -735,7 +741,6 @@ public class MainFrame extends JFrame {
                 @Override public boolean isCellEditable(int r, int c) { return false; }
             });
 
-            // 알림 중복제거 (Caffeine)
             Set<String> alertKeys = repo.getAlertDedupKeys();
             Object[][] alRows = new Object[alertKeys.size()][1];
             int ai = 0;
@@ -744,14 +749,12 @@ public class MainFrame extends JFrame {
                 @Override public boolean isCellEditable(int r, int c) { return false; }
             });
 
-            // 요약 라벨
             summaryLabel.setText(String.format(
-                "자산: %d건  |  반출허용: %d건  |  태그 DB캐시: %d건  |  알림캐시: %d건",
+                "\uc790\uc0b0: %d\uac74  |  \ubc18\ucd9c\ud5c8\uc6a9: %d\uac74  |  \ud0dc\uadf8 DB\uce90\uc2dc: %d\uac74  |  \uc54c\ub9bc\uce90\uc2dc: %d\uac74",
                 assetMap.size(), permitted.size(),
                 tagDataPanel.getDbDedupCacheSize(), repo.getAlertDedupSize()));
         };
 
-        // 버튼 동작
         refreshBtn.addActionListener(e -> {
             AssetRepository.getInstance().refreshCache();
             loadCacheData.run();
@@ -759,7 +762,6 @@ public class MainFrame extends JFrame {
         });
         reloadBtn.addActionListener(e -> loadCacheData.run());
 
-        // 초기 로드
         loadCacheData.run();
 
         panel.add(topPanel, BorderLayout.NORTH);
@@ -767,20 +769,23 @@ public class MainFrame extends JFrame {
         return panel;
     }
 
-    /** 공통 스타일 JTable 생성 */
+    /** Styled table with zebra striping */
     private JTable createStyledTable(Object[][] rows, String[] cols) {
         JTable table = new JTable(rows, cols) {
             @Override public boolean isCellEditable(int row, int col) { return false; }
+            @Override
+            public Component prepareRenderer(javax.swing.table.TableCellRenderer renderer, int row, int column) {
+                Component c = super.prepareRenderer(renderer, row, column);
+                if (!isCellSelected(row, column)) {
+                    c.setBackground(row % 2 == 0 ? Color.WHITE : Theme.TABLE_STRIPE);
+                }
+                return c;
+            }
         };
-        table.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
-        table.setRowHeight(22);
-        table.getTableHeader().setFont(new Font("맑은 고딕", Font.BOLD, 12));
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        table.setAutoCreateRowSorter(true);
+        Theme.styleTable(table);
         return table;
     }
 
-    /** 설정 다이얼로그 열기 */
     private void openConfigDialog() {
         ConfigDialog dialog = new ConfigDialog(this, configs);
         dialog.setVisible(true);
@@ -789,8 +794,6 @@ public class MainFrame extends JFrame {
             configs = dialog.getConfigs();
             ReaderConfig.saveToFile(CONFIG_FILE, configs);
             logPanel.appendLog("Config saved: " + configs.size() + " reader(s)");
-
-            // 재초기화
             initializeReaders();
         }
     }

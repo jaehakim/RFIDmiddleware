@@ -18,18 +18,27 @@ public class ReaderStatusPanel extends JPanel {
 
     public ReaderStatusPanel() {
         setLayout(new BorderLayout());
-        setBorder(BorderFactory.createTitledBorder("리더기 상태"));
+        setOpaque(true);
+        setBackground(Theme.CONTENT_BG);
 
-        iconContainer = new JPanel(new WrapFlowLayout(FlowLayout.LEFT, 4, 4));
+        // Section label instead of TitledBorder
+        add(Theme.createSectionLabel("\ub9ac\ub354\uae30 \uc0c1\ud0dc"), BorderLayout.NORTH);
+
+        iconContainer = new JPanel(new WrapFlowLayout(FlowLayout.LEFT, Theme.CARD_GAP, Theme.CARD_GAP));
+        iconContainer.setOpaque(true);
+        iconContainer.setBackground(Theme.CONTENT_BG);
         scrollPane = new JScrollPane(iconContainer,
             JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
             JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.setBorder(null);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        scrollPane.setOpaque(true);
+        scrollPane.getViewport().setOpaque(true);
+        scrollPane.setBackground(Theme.CONTENT_BG);
+        scrollPane.getViewport().setBackground(Theme.CONTENT_BG);
 
         add(scrollPane, BorderLayout.CENTER);
 
-        // 창 리사이즈 시 높이 재계산
         addComponentListener(new ComponentAdapter() {
             @Override
             public void componentResized(ComponentEvent e) {
@@ -38,7 +47,6 @@ public class ReaderStatusPanel extends JPanel {
         });
     }
 
-    /** 리더기 아이콘 초기화 - readers.cfg 개수만큼 동적 생성 */
     public void initialize(List<ReaderConfig> configs, ReaderManager manager, Runnable onConfigChanged) {
         iconContainer.removeAll();
         icons.clear();
@@ -73,7 +81,6 @@ public class ReaderStatusPanel extends JPanel {
             iconContainer.add(icon);
         }
 
-        // 아이콘 개수에 따라 패널 높이 동적 조절
         updatePreferredHeight();
 
         iconContainer.revalidate();
@@ -82,52 +89,48 @@ public class ReaderStatusPanel extends JPanel {
         repaint();
     }
 
-    /** 아이콘 수와 부모 폭에 맞춰 높이 재계산 */
     private void updatePreferredHeight() {
-        Insets border = getInsets();  // TitledBorder 실제 insets 사용
+        // Section label height (~28px) + padding
+        int labelH = 28;
 
         if (icons.isEmpty()) {
-            setPreferredSize(new Dimension(0, border.top + border.bottom));
+            setPreferredSize(new Dimension(0, labelH + 4));
             return;
         }
 
-        int hgap = 4;
-        int vgap = 4;
-        int iconW = 90 + hgap;
-        int iconH = 62 + vgap;
+        int hgap = Theme.CARD_GAP;
+        int vgap = Theme.CARD_GAP;
+        int iconW = Theme.CARD_W + hgap;
+        int iconH = Theme.CARD_H + vgap;
 
         int availableW = getWidth();
         if (availableW <= 0 && getParent() != null) availableW = getParent().getWidth();
         if (availableW <= 0) availableW = 800;
-        availableW -= border.left + border.right;
+        availableW -= 16; // insets
 
         int cols = Math.max(1, availableW / iconW);
         int rows = (int) Math.ceil((double) icons.size() / cols);
         int contentH = rows * iconH + vgap;
-        int totalH = border.top + contentH + border.bottom;
+        int totalH = labelH + contentH + 4;
 
-        // 최대 3행까지 표시, 그 이상은 스크롤
-        int maxH = border.top + 3 * iconH + vgap + border.bottom;
+        int maxH = labelH + 3 * iconH + vgap + 4;
         setPreferredSize(new Dimension(0, Math.min(totalH, maxH)));
 
         revalidate();
     }
 
-    /** 특정 리더기 상태 업데이트 */
     public void updateStatus(int index, ReaderStatus status) {
         if (index >= 0 && index < icons.size()) {
             icons.get(index).setStatus(status);
         }
     }
 
-    /** 특정 리더기 경광등 상태 업데이트 */
     public void updateLightStatus(int index, boolean lightOn) {
         if (index >= 0 && index < icons.size()) {
             icons.get(index).setLightOn(lightOn);
         }
     }
 
-    /** 특정 리더기 부저 상태 업데이트 */
     public void updateBuzzerStatus(int index, boolean buzzerOn) {
         if (index >= 0 && index < icons.size()) {
             icons.get(index).setBuzzerOn(buzzerOn);
@@ -138,10 +141,6 @@ public class ReaderStatusPanel extends JPanel {
         return icons.size();
     }
 
-    /**
-     * FlowLayout 변형: 컨테이너 폭에 맞춰 줄바꿈하고
-     * preferred height를 자동 계산하는 레이아웃
-     */
     private static class WrapFlowLayout extends FlowLayout {
         WrapFlowLayout(int align, int hgap, int vgap) {
             super(align, hgap, vgap);
@@ -152,7 +151,6 @@ public class ReaderStatusPanel extends JPanel {
             synchronized (target.getTreeLock()) {
                 int targetWidth = target.getWidth();
                 if (targetWidth <= 0) {
-                    // 아직 크기가 결정되지 않은 경우 부모 폭 사용
                     if (target.getParent() != null) {
                         targetWidth = target.getParent().getWidth();
                     }
@@ -173,7 +171,6 @@ public class ReaderStatusPanel extends JPanel {
                     if (!c.isVisible()) continue;
                     Dimension d = c.getPreferredSize();
                     if (x > 0 && x + d.width > maxWidth) {
-                        // 줄바꿈
                         y += rowHeight + vgap;
                         x = 0;
                         rowHeight = 0;

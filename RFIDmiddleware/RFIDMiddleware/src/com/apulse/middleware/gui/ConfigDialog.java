@@ -17,102 +17,103 @@ public class ConfigDialog extends JDialog {
     private boolean confirmed = false;
 
     public ConfigDialog(Frame owner, List<ReaderConfig> configs) {
-        super(owner, "리더기 설정", true);
-        setSize(870, 400);
+        super(owner, "\ub9ac\ub354\uae30 \uc124\uc815", true);
+        setSize(920, 400);
         setLocationRelativeTo(owner);
         setLayout(new BorderLayout(5, 5));
 
-        // 테이블
+        // Table
         tableModel = new ConfigTableModel(configs);
         table = new JTable(tableModel);
-        table.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
+        Theme.styleTable(table);
         table.setRowHeight(24);
-        table.getTableHeader().setFont(new Font("맑은 고딕", Font.BOLD, 11));
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
 
-        // 컬럼 너비
-        table.getColumnModel().getColumn(0).setPreferredWidth(80);   // 이름
-        table.getColumnModel().getColumn(1).setPreferredWidth(120);  // IP
-        table.getColumnModel().getColumn(2).setPreferredWidth(55);   // 포트
-        table.getColumnModel().getColumn(3).setPreferredWidth(40);   // 부저
-        table.getColumnModel().getColumn(4).setPreferredWidth(50);   // 경광등
-        table.getColumnModel().getColumn(5).setPreferredWidth(45);   // 출력1
-        table.getColumnModel().getColumn(6).setPreferredWidth(45);   // 출력2
-        table.getColumnModel().getColumn(7).setPreferredWidth(45);   // 출력3
-        table.getColumnModel().getColumn(8).setPreferredWidth(45);   // 출력4
-        table.getColumnModel().getColumn(9).setPreferredWidth(60);   // 드웰시간
+        // Column widths
+        table.getColumnModel().getColumn(0).setPreferredWidth(80);
+        table.getColumnModel().getColumn(1).setPreferredWidth(120);
+        table.getColumnModel().getColumn(2).setPreferredWidth(55);
+        table.getColumnModel().getColumn(3).setPreferredWidth(40);
+        table.getColumnModel().getColumn(4).setPreferredWidth(50);
+        table.getColumnModel().getColumn(5).setPreferredWidth(45);
+        table.getColumnModel().getColumn(6).setPreferredWidth(45);
+        table.getColumnModel().getColumn(7).setPreferredWidth(45);
+        table.getColumnModel().getColumn(8).setPreferredWidth(45);
+        table.getColumnModel().getColumn(9).setPreferredWidth(60);
+        table.getColumnModel().getColumn(10).setPreferredWidth(50);
 
-        // 부저, 경광등 컬럼: 체크박스 렌더러/에디터
+        // Boolean columns: checkbox renderer/editor
         table.getColumnModel().getColumn(3).setCellRenderer(table.getDefaultRenderer(Boolean.class));
         table.getColumnModel().getColumn(3).setCellEditor(table.getDefaultEditor(Boolean.class));
         table.getColumnModel().getColumn(4).setCellRenderer(table.getDefaultRenderer(Boolean.class));
         table.getColumnModel().getColumn(4).setCellEditor(table.getDefaultEditor(Boolean.class));
+        table.getColumnModel().getColumn(10).setCellRenderer(table.getDefaultRenderer(Boolean.class));
+        table.getColumnModel().getColumn(10).setCellEditor(table.getDefaultEditor(Boolean.class));
 
-        // 숫자 컬럼 중앙 정렬
+        // Center-align number columns
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(JLabel.CENTER);
         for (int i = 2; i <= 9; i++) {
-            if (i != 3 && i != 4) { // 부저, 경광등(체크박스) 제외
+            if (i != 3 && i != 4) {
                 table.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
             }
         }
 
-        // EPC Mask 입력 패널
+        // EPC Mask panel
         JPanel maskPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         maskPanel.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
         JLabel maskLabel = new JLabel("EPC Mask:");
-        maskLabel.setFont(new Font("맑은 고딕", Font.BOLD, 12));
+        maskLabel.setFont(Theme.SECTION_LABEL);
         maskField = new JTextField(ReaderConfig.getEpcMask(), 20);
-        maskField.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
-        JLabel maskHint = new JLabel("(EPC 접두사 필터, 빈 값이면 전체 수신)");
-        maskHint.setFont(new Font("맑은 고딕", Font.PLAIN, 10));
+        maskField.setFont(Theme.BODY);
+        JLabel maskHint = new JLabel("(EPC \uc811\ub450\uc0ac \ud544\ud130, \ube48 \uac12\uc774\uba74 \uc804\uccb4 \uc218\uc2e0)");
+        maskHint.setFont(new Font("\ub9d1\uc740 \uace0\ub515", Font.PLAIN, 10));
         maskHint.setForeground(Color.GRAY);
         maskPanel.add(maskLabel);
         maskPanel.add(maskField);
         maskPanel.add(maskHint);
 
-        // 상단: mask + 테이블
+        // Top: mask + table
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.add(maskPanel, BorderLayout.NORTH);
         JScrollPane scrollPane = new JScrollPane(table);
         topPanel.add(scrollPane, BorderLayout.CENTER);
         add(topPanel, BorderLayout.CENTER);
 
-        // 우측 버튼
+        // Side buttons
         JPanel sidePanel = new JPanel();
         sidePanel.setLayout(new BoxLayout(sidePanel, BoxLayout.Y_AXIS));
         sidePanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
-        JButton addButton = createSideButton("추가");
-        addButton.addActionListener(e -> {
+        JButton addButton = Theme.createFlatButton("\ucd94\uac00", e -> {
             int num = tableModel.getRowCount() + 1;
             tableModel.addRow(new ReaderConfig("Reader-" + String.format("%02d", num), "192.168.1.151", 20058));
         });
+        addButton.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JButton deleteButton = createSideButton("삭제");
-        deleteButton.addActionListener(e -> {
+        JButton deleteButton = Theme.createFlatButton("\uc0ad\uc81c", e -> {
             int row = table.getSelectedRow();
             if (row >= 0) tableModel.removeRow(row);
         });
+        deleteButton.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JButton upButton = createSideButton("▲ 위로");
-        upButton.addActionListener(e -> {
+        JButton upButton = Theme.createFlatButton("\u25b2 \uc704\ub85c", e -> {
             int row = table.getSelectedRow();
             if (row > 0) {
                 tableModel.moveRow(row, row - 1);
                 table.setRowSelectionInterval(row - 1, row - 1);
             }
         });
+        upButton.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JButton downButton = createSideButton("▼ 아래로");
-        downButton.addActionListener(e -> {
+        JButton downButton = Theme.createFlatButton("\u25bc \uc544\ub798\ub85c", e -> {
             int row = table.getSelectedRow();
             if (row >= 0 && row < tableModel.getRowCount() - 1) {
                 tableModel.moveRow(row, row + 1);
                 table.setRowSelectionInterval(row + 1, row + 1);
             }
         });
+        downButton.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         sidePanel.add(addButton);
         sidePanel.add(Box.createVerticalStrut(5));
@@ -124,17 +125,15 @@ public class ConfigDialog extends JDialog {
 
         add(sidePanel, BorderLayout.EAST);
 
-        // 하단 저장/취소
+        // Bottom: save/cancel
         JPanel bottomPanel = new JPanel(new BorderLayout());
 
-        applyAllCheck = new JCheckBox("전체적용 (1행 설정값을 전체 리더기에 적용)");
-        applyAllCheck.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
+        applyAllCheck = new JCheckBox("\uc804\uccb4\uc801\uc6a9 (1\ud589 \uc124\uc815\uac12\uc744 \uc804\uccb4 \ub9ac\ub354\uae30\uc5d0 \uc801\uc6a9)");
+        applyAllCheck.setFont(Theme.SMALL);
         bottomPanel.add(applyAllCheck, BorderLayout.WEST);
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 5));
-        JButton okButton = new JButton("저장");
-        okButton.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
-        okButton.addActionListener(e -> {
+        JButton okButton = Theme.createFlatButton("\uc800\uc7a5", e -> {
             if (table.isEditing()) {
                 table.getCellEditor().stopCellEditing();
             }
@@ -143,21 +142,12 @@ public class ConfigDialog extends JDialog {
             setVisible(false);
         });
 
-        JButton cancelButton = new JButton("취소");
-        cancelButton.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
-        cancelButton.addActionListener(e -> setVisible(false));
+        JButton cancelButton = Theme.createFlatButton("\ucde8\uc18c", e -> setVisible(false));
 
         btnPanel.add(okButton);
         btnPanel.add(cancelButton);
         bottomPanel.add(btnPanel, BorderLayout.EAST);
         add(bottomPanel, BorderLayout.SOUTH);
-    }
-
-    private JButton createSideButton(String text) {
-        JButton btn = new JButton(text);
-        btn.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
-        btn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        return btn;
     }
 
     public boolean isConfirmed() { return confirmed; }
@@ -167,7 +157,7 @@ public class ConfigDialog extends JDialog {
     }
 
     private class ConfigTableModel extends AbstractTableModel {
-        private final String[] columns = {"이름", "IP 주소", "포트", "부저", "경광등", "출력1", "출력2", "출력3", "출력4", "드웰시간"};
+        private final String[] columns = {"\uc774\ub984", "IP \uc8fc\uc18c", "\ud3ec\ud2b8", "\ubd80\uc800", "\uacbd\uad11\ub4f1", "\ucd9c\ub8251", "\ucd9c\ub8252", "\ucd9c\ub8253", "\ucd9c\ub8254", "\ub4dc\uc6f0\uc2dc\uac04", "\ube44\ud504\uc74c"};
         private final List<ReaderConfig> data;
 
         ConfigTableModel(List<ReaderConfig> configs) {
@@ -178,6 +168,7 @@ public class ConfigDialog extends JDialog {
                 copy.setWarningLightEnabled(c.isWarningLightEnabled());
                 copy.setAntennaPowers(c.getAntennaPowers().clone());
                 copy.setDwellTime(c.getDwellTime());
+                copy.setBeepEnabled(c.isBeepEnabled());
                 data.add(copy);
             }
         }
@@ -216,7 +207,7 @@ public class ConfigDialog extends JDialog {
 
         @Override
         public Class<?> getColumnClass(int col) {
-            if (col == 3 || col == 4) return Boolean.class;
+            if (col == 3 || col == 4 || col == 10) return Boolean.class;
             if (col == 2 || (col >= 5 && col <= 9)) return Integer.class;
             return String.class;
         }
@@ -235,6 +226,7 @@ public class ConfigDialog extends JDialog {
                 case 7: return cfg.getAntennaPowers()[2];
                 case 8: return cfg.getAntennaPowers()[3];
                 case 9: return cfg.getDwellTime();
+                case 10: return cfg.isBeepEnabled();
                 default: return "";
             }
         }
@@ -244,7 +236,6 @@ public class ConfigDialog extends JDialog {
             applySingle(data.get(row), value, col);
             fireTableCellUpdated(row, col);
 
-            // 전체적용: 1행(row 0)의 설정 컬럼(3~8) 변경 시 나머지 행에 전파
             if (row == 0 && col >= 3 && applyAllCheck.isSelected()) {
                 for (int r = 1; r < data.size(); r++) {
                     applySingle(data.get(r), value, col);
@@ -280,6 +271,9 @@ public class ConfigDialog extends JDialog {
                     break;
                 case 9:
                     try { cfg.setDwellTime(Integer.parseInt(str)); } catch (NumberFormatException ignored) {}
+                    break;
+                case 10:
+                    cfg.setBeepEnabled(Boolean.TRUE.equals(value));
                     break;
             }
         }

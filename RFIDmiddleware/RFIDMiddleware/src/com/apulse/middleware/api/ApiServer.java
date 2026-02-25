@@ -233,6 +233,7 @@ public class ApiServer {
                         .append(powers[2]).append(",").append(powers[3])
                     .append("],")
                     .append("\"dwellTime\":").append(cfg.getDwellTime()).append(",")
+                    .append("\"beepEnabled\":").append(cfg.isBeepEnabled()).append(",")
                     .append("\"status\":").append(toJsonString(connections.get(i).getStatus().name()))
                     .append("}");
             }
@@ -263,6 +264,7 @@ public class ApiServer {
             if (fields.containsKey("buzzer")) targetConfig.setBuzzerEnabled(Boolean.parseBoolean(fields.get("buzzer")));
             if (fields.containsKey("warningLight")) targetConfig.setWarningLightEnabled(Boolean.parseBoolean(fields.get("warningLight")));
             if (fields.containsKey("dwellTime")) targetConfig.setDwellTime(Integer.parseInt(fields.get("dwellTime")));
+            if (fields.containsKey("beepEnabled")) targetConfig.setBeepEnabled(Boolean.parseBoolean(fields.get("beepEnabled")));
             if (fields.containsKey("antennaPower1") || fields.containsKey("antennaPower2")
                 || fields.containsKey("antennaPower3") || fields.containsKey("antennaPower4")) {
                 int[] powers = targetConfig.getAntennaPowers().clone();
@@ -870,7 +872,8 @@ public class ApiServer {
                 + "          \"antennaPower2\": {\"type\": \"integer\", \"example\": 30},\n"
                 + "          \"antennaPower3\": {\"type\": \"integer\", \"example\": 30},\n"
                 + "          \"antennaPower4\": {\"type\": \"integer\", \"example\": 30},\n"
-                + "          \"dwellTime\": {\"type\": \"integer\", \"example\": 500, \"description\": \"\\ub4dc\\uc6f0\\uc2dc\\uac04 (ms)\"}\n"
+                + "          \"dwellTime\": {\"type\": \"integer\", \"example\": 500, \"description\": \"\\ub4dc\\uc6f0\\uc2dc\\uac04 (ms)\"},\n"
+                + "          \"beepEnabled\": {\"type\": \"boolean\", \"example\": true, \"description\": \"\\ub9ac\\ub354\\uae30 \\ub0b4\\uc7a5 \\ube44\\ud504\\uc74c\"}\n"
                 + "        }\n"
                 + "      },\n"
 
@@ -987,6 +990,7 @@ public class ApiServer {
                         .append("\"readerName\":").append(toJsonString(t.readerName)).append(",")
                         .append("\"epc\":").append(toJsonString(t.epc)).append(",")
                         .append("\"rssi\":").append(t.rssi).append(",")
+                        .append("\"antenna\":").append(t.antenna).append(",")
                         .append("\"assetNumber\":").append(toJsonString(t.assetNumber)).append(",")
                         .append("\"assetName\":").append(toJsonString(t.assetName)).append(",")
                         .append("\"department\":").append(toJsonString(t.department)).append(",")

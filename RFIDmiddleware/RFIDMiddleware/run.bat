@@ -8,6 +8,10 @@ set BASE_DIR=%~dp0
 set JAR_NAME=RFIDMiddleware.jar
 set CFG_DIR=%BASE_DIR%config
 
+REM Java path (modify this to match your JRE/JDK installation)
+set JAVA_HOME=C:\JAVA\openjdk-21.0.2_windows-x64_bin
+set PATH=%JAVA_HOME%\bin;%PATH%
+
 if not exist "%BASE_DIR%%JAR_NAME%" (
     echo [ERROR] %JAR_NAME% not found. Run build.bat first.
     pause

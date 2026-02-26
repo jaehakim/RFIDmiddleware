@@ -10,6 +10,10 @@ set LIB_DIR=%BASE_DIR%libs
 set OUT_DIR=%BASE_DIR%out
 set JAR_NAME=RFIDMiddleware.jar
 
+REM Java path (modify this to match your JDK installation)
+set JAVA_HOME=C:\JAVA\openjdk-21.0.2_windows-x64_bin
+set PATH=%JAVA_HOME%\bin;%PATH%
+
 REM Korean path workaround: copy to temp build dir
 set BUILD_TMP=%TEMP%\air3x_build_%RANDOM%
 echo [1/5] Temp build dir: %BUILD_TMP%

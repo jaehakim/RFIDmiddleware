@@ -375,7 +375,7 @@ public class MainFrame extends JFrame {
             + "</table>"
 
             + "<h3>\uc778\ub514\ucf00\uc774\ud130 (\uc6b0\uce21 3\uac1c)</h3>"
-            + "<p style='font-size:11px; margin:2px 0 4px 0;'>\uc704\uc5d0\uc11c \uc544\ub798\ub85c: \ubd80\uc800 / \uacbd\uad11\ub4f1 / \ube44\ud504\uc74c</p>"
+            + "<p style='font-size:11px; margin:2px 0 4px 0;'>\uc704\uc5d0\uc11c \uc544\ub798\ub85c: \ube44\ud504\uc74c / \uacbd\uad11\ub4f1 / \ubd80\uc800</p>"
             + "<table cellpadding='4' cellspacing='0' border='1' style='border-collapse:collapse;'>"
             + "<tr style='background:#E8E8E8;'><th>\ubaa8\uc591</th><th>\uc0c1\ud0dc</th><th>\uc124\uba85</th></tr>"
             + "<tr><td style='color:#C8CCD4;'><b>&#9633;</b> \ud68c\uc0c9 \ud14c\ub450\ub9ac \uc0ac\uac01\ud615</td>"
@@ -388,10 +388,10 @@ public class MainFrame extends JFrame {
             + "<table cellpadding='3' cellspacing='0' border='0' style='margin-top:4px;'>"
             + "<tr><td><b style='color:#2ECC71;'>&#9679;</b> \ube44\ud504\uc74c</td>"
             +     "<td>\ub179\uc0c9 &mdash; \uc778\ubca4\ud1a0\ub9ac(\uc77d\uae30 \uc911) \uc0c1\ud0dc\uc5d0\uc11c \ud65c\uc131\ud654</td></tr>"
-            + "<tr><td><b style='color:#1E96DC;'>&#9679;</b> \ubd80\uc800</td>"
-            +     "<td>\ud30c\ub780\uc0c9 &mdash; \ubc18\ucd9c\uc54c\ub9bc \uc2dc \ub9b4\ub808\uc774 ON\uc73c\ub85c \ud65c\uc131\ud654</td></tr>"
             + "<tr><td><b style='color:#FFB400;'>&#9679;</b> \uacbd\uad11\ub4f1</td>"
             +     "<td>\uc8fc\ud669\uc0c9 &mdash; \ubc18\ucd9c\uc54c\ub9bc \uc2dc \ub9b4\ub808\uc774 ON\uc73c\ub85c \ud65c\uc131\ud654</td></tr>"
+            + "<tr><td><b style='color:#1E96DC;'>&#9679;</b> \ubd80\uc800</td>"
+            +     "<td>\ud30c\ub780\uc0c9 &mdash; \ubc18\ucd9c\uc54c\ub9bc \uc2dc \ub9b4\ub808\uc774 ON\uc73c\ub85c \ud65c\uc131\ud654</td></tr>"
             + "</table>"
 
             + "<h3>\uc6b0\ud074\ub9ad \uba54\ub274</h3>"

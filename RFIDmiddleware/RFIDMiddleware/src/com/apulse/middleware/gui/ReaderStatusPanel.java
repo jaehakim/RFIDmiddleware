@@ -137,6 +137,18 @@ public class ReaderStatusPanel extends JPanel {
         }
     }
 
+    public void updateConfigState(int index, boolean buzzer, boolean light, boolean beep) {
+        if (index >= 0 && index < icons.size()) {
+            icons.get(index).setConfigState(buzzer, light, beep);
+        }
+    }
+
+    public void updateBeepEnabled(int index, boolean beepEnabled) {
+        if (index >= 0 && index < icons.size()) {
+            icons.get(index).setBeepEnabled(beepEnabled);
+        }
+    }
+
     public int getIconCount() {
         return icons.size();
     }

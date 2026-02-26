@@ -17,6 +17,9 @@ public class ReaderIconComponent extends JPanel {
     private boolean lightOn = false;
     private boolean buzzerOn = false;
     private boolean blinkOn = true;
+    private boolean beepEnabled = false;
+    private boolean buzzerConfigEnabled = false;
+    private boolean lightConfigEnabled = false;
     private Timer blinkTimer;
     private JPopupMenu popupMenu;
     private Runnable onConnect;
@@ -126,23 +129,44 @@ public class ReaderIconComponent extends JPanel {
 
     public void setLightOn(boolean on) {
         this.lightOn = on;
+        updateBlinkTimer();
         repaint();
     }
 
     public void setBuzzerOn(boolean on) {
         this.buzzerOn = on;
+        updateBlinkTimer();
         repaint();
     }
 
     public void setStatus(ReaderStatus status) {
         this.status = status;
-        if (status == ReaderStatus.READING) {
+        updateBlinkTimer();
+        repaint();
+    }
+
+    public void setBeepEnabled(boolean enabled) {
+        this.beepEnabled = enabled;
+        updateBlinkTimer();
+        repaint();
+    }
+
+    public void setConfigState(boolean buzzerConfig, boolean lightConfig, boolean beepConfig) {
+        this.buzzerConfigEnabled = buzzerConfig;
+        this.lightConfigEnabled = lightConfig;
+        this.beepEnabled = beepConfig;
+        updateBlinkTimer();
+        repaint();
+    }
+
+    private void updateBlinkTimer() {
+        boolean needBlink = (status == ReaderStatus.READING) || buzzerOn || lightOn;
+        if (needBlink) {
             if (!blinkTimer.isRunning()) blinkTimer.start();
         } else {
             blinkTimer.stop();
             blinkOn = true;
         }
-        repaint();
     }
 
     /**
@@ -284,32 +308,53 @@ public class ReaderIconComponent extends JPanel {
         g2.setColor(Theme.CARD_TEXT);
         g2.drawString(status.getLabel(), circleX + circleD + 3, circleCY + fm.getAscent() / 2 - 1);
 
-        // B / L indicators (right side, vertical stack, larger)
-        int indSize = 12;
+        // 3 indicators: beep / buzzer / light (right side, vertical)
+        // OFF=gray square, ON=color circle, ACTIVE=color circle blinking
+        int indSize = 10;
+        int indGap = 3;
+        int totalInd = indSize * 3 + indGap * 2;
         int indX = w - indSize - 8;
+        int indStartY = midY - totalInd / 2;
 
-        // Buzzer indicator (top)
-        int buzY = midY - indSize - 3;
-        if (buzzerOn) {
-            g2.setColor(new Color(100, 200, 255, 60));
-            g2.fillOval(indX - 4, buzY - 4, indSize + 8, indSize + 8);
-            g2.setColor(Theme.INDICATOR_BUZZER_ON);
-        } else {
-            g2.setColor(Theme.INDICATOR_OFF);
-        }
-        g2.fillOval(indX, buzY, indSize, indSize);
+        Color beepColor = new Color(0x2E, 0xCC, 0x71);
+        boolean beepActive = beepEnabled && status == ReaderStatus.READING;
+        drawIndicator(g2, indX, indStartY, indSize, beepEnabled, beepActive, beepColor);
 
-        // Light indicator (bottom)
-        int lightY = midY + 3;
-        if (lightOn) {
-            g2.setColor(new Color(255, 200, 50, 60));
-            g2.fillOval(indX - 4, lightY - 4, indSize + 8, indSize + 8);
-            g2.setColor(Theme.INDICATOR_LIGHT_ON);
-        } else {
-            g2.setColor(Theme.INDICATOR_OFF);
-        }
-        g2.fillOval(indX, lightY, indSize, indSize);
+        int buzIY = indStartY + indSize + indGap;
+        drawIndicator(g2, indX, buzIY, indSize, buzzerConfigEnabled, buzzerOn, Theme.INDICATOR_BUZZER_ON);
+
+        int lightIY = buzIY + indSize + indGap;
+        drawIndicator(g2, indX, lightIY, indSize, lightConfigEnabled, lightOn, Theme.INDICATOR_LIGHT_ON);
 
         g2.dispose();
+    }
+
+    /**
+     * Draw a single indicator shape.
+     * configOn=false → gray square outline
+     * configOn=true, active=false → colored circle
+     * configOn=true, active=true → colored circle with blink
+     */
+    private void drawIndicator(Graphics2D g2, int x, int y, int size, boolean configOn, boolean active, Color color) {
+        if (!configOn) {
+            // Gray square outline
+            g2.setColor(Theme.INDICATOR_OFF);
+            g2.setStroke(new BasicStroke(1.2f));
+            g2.drawRect(x, y, size, size);
+        } else if (active) {
+            // Blinking colored circle
+            if (blinkOn) {
+                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 50));
+                g2.fillOval(x - 3, y - 3, size + 6, size + 6);
+                g2.setColor(color);
+            } else {
+                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 80));
+            }
+            g2.fillOval(x, y, size, size);
+        } else {
+            // Colored circle (static)
+            g2.setColor(color);
+            g2.fillOval(x, y, size, size);
+        }
     }
 }

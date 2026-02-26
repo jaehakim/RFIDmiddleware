@@ -136,24 +136,24 @@ public class MainFrame extends JFrame {
         JPanel centerButtons = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         centerButtons.setOpaque(false);
 
-        JButton connectAllBtn = Theme.createHeaderButton("\u25cf \uc804\uccb4 \uc5f0\uacb0", e -> {
+        JButton connectAllBtn = Theme.createHeaderButton("전체 연결", Theme.createHeaderIcon("connect"), e -> {
             logPanel.appendLog("Connect all readers...");
             readerManager.connectAll();
         });
-        JButton disconnectAllBtn = Theme.createHeaderButton("\u25cb \uc804\uccb4 \ud574\uc81c", e -> {
+        JButton disconnectAllBtn = Theme.createHeaderButton("전체 해제", Theme.createHeaderIcon("disconnect"), e -> {
             logPanel.appendLog("Disconnect all readers...");
             readerManager.disconnectAll();
         });
-        JButton startInvBtn = Theme.createHeaderButton("\u25b6 \uc778\ubca4\ud1a0\ub9ac \uc2dc\uc791", e -> {
+        JButton startInvBtn = Theme.createHeaderButton("인벤토리 시작", Theme.createHeaderIcon("play"), e -> {
             logPanel.appendLog("Start inventory all...");
             readerManager.startInventoryAll();
         });
-        JButton stopInvBtn = Theme.createHeaderButton("\u25a0 \uc778\ubca4\ud1a0\ub9ac \uc911\uc9c0", e -> {
+        JButton stopInvBtn = Theme.createHeaderButton("인벤토리 중지", Theme.createHeaderIcon("stop"), e -> {
             logPanel.appendLog("Stop inventory all...");
             readerManager.stopInventoryAll();
         });
-        JButton clearTagsBtn = Theme.createHeaderButton("\u25c7 \ud0dc\uadf8 \ucd08\uae30\ud654", e -> tagDataPanel.clearTags());
-        JButton assetDbBtn = Theme.createHeaderButton("\u25c6 \uc790\uc0b0 DB", e -> showAssetDbDialog());
+        JButton clearTagsBtn = Theme.createHeaderButton("태그 초기화", Theme.createHeaderIcon("clear"), e -> tagDataPanel.clearTags());
+        JButton assetDbBtn = Theme.createHeaderButton("자산 DB", Theme.createHeaderIcon("database"), e -> showAssetDbDialog());
 
         centerButtons.add(connectAllBtn);
         centerButtons.add(disconnectAllBtn);
@@ -170,8 +170,8 @@ public class MainFrame extends JFrame {
         JPanel rightButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         rightButtons.setOpaque(false);
 
-        JButton helpBtn = Theme.createHeaderButton("? \ub3c4\uc6c0\ub9d0", e -> showHelpDialog());
-        JButton configBtn = Theme.createHeaderButton("\u25a3 \uc124\uc815", e -> openConfigDialog());
+        JButton helpBtn = Theme.createHeaderButton("도움말", Theme.createHeaderIcon("help"), e -> showHelpDialog());
+        JButton configBtn = Theme.createHeaderButton("설정", Theme.createHeaderIcon("settings"), e -> openConfigDialog());
 
         rightButtons.add(helpBtn);
         rightButtons.add(configBtn);
@@ -226,6 +226,8 @@ public class MainFrame extends JFrame {
                     int index = findConnectionIndex(connection);
                     if (index >= 0) {
                         statusPanel.updateStatus(index, newStatus);
+                        // Beep icon active state depends on READING status
+                        statusPanel.updateBeepEnabled(index, connection.getConfig().isBeepEnabled());
                     }
                     if (newStatus == ReaderStatus.CONNECTED) {
                         saveConfig();
@@ -325,6 +327,13 @@ public class MainFrame extends JFrame {
 
         readerManager.initialize(configs, statusListener, tagListener);
         statusPanel.initialize(configs, readerManager, this::saveConfig);
+
+        // Pass config state (buzzer/light/beep) to icons
+        for (int i = 0; i < configs.size(); i++) {
+            ReaderConfig cfg = configs.get(i);
+            statusPanel.updateConfigState(i,
+                cfg.isBuzzerEnabled(), cfg.isWarningLightEnabled(), cfg.isBeepEnabled());
+        }
     }
 
     private int findConnectionIndex(ReaderConnection connection) {
@@ -361,10 +370,26 @@ public class MainFrame extends JFrame {
             + "<h3>\uc544\uc774\ucf58 \ud45c\uc2dc</h3>"
             + "<table cellpadding='4' cellspacing='0' border='0'>"
             + "<tr><td>\uc88c\uce21 \uc0c9\uc0c1 \ubc14</td><td>\ud604\uc7ac \ub9ac\ub354\uae30 \uc0c1\ud0dc\ub97c \uc0c9\uc0c1\uc73c\ub85c \ud45c\uc2dc</td></tr>"
-            + "<tr><td><b style='color:#1E96DC;'>&#9679;</b> B</td>"
-            +     "<td><b>\ubd80\uc800</b> &mdash; \ud30c\ub780\uc0c9: ON / \ud68c\uc0c9: OFF</td></tr>"
-            + "<tr><td><b style='color:#FFB400;'>&#9679;</b> L</td>"
-            +     "<td><b>\uacbd\uad11\ub4f1</b> &mdash; \uc8fc\ud669\uc0c9: ON / \ud68c\uc0c9: OFF</td></tr>"
+            + "</table>"
+
+            + "<h3>\uc778\ub514\ucf00\uc774\ud130 (\uc6b0\uce21 3\uac1c)</h3>"
+            + "<p style='font-size:11px; margin:2px 0 4px 0;'>\uc704\uc5d0\uc11c \uc544\ub798\ub85c: \ube44\ud504\uc74c / \ubd80\uc800 / \uacbd\uad11\ub4f1</p>"
+            + "<table cellpadding='4' cellspacing='0' border='1' style='border-collapse:collapse;'>"
+            + "<tr style='background:#E8E8E8;'><th>\ubaa8\uc591</th><th>\uc0c1\ud0dc</th><th>\uc124\uba85</th></tr>"
+            + "<tr><td style='color:#C8CCD4;'><b>&#9633;</b> \ud68c\uc0c9 \ud14c\ub450\ub9ac \uc0ac\uac01\ud615</td>"
+            +     "<td><b>\ubbf8\uc0ac\uc6a9</b></td><td>\uc124\uc815\uc5d0\uc11c \uae30\ub2a5 OFF</td></tr>"
+            + "<tr><td><b style='color:#2ECC71;'>&#9679;</b> / <b style='color:#1E96DC;'>&#9679;</b> / <b style='color:#FFB400;'>&#9679;</b> \uceec\ub7ec \uc6d0\ud615</td>"
+            +     "<td><b>\uc0ac\uc6a9</b></td><td>\uc124\uc815\uc5d0\uc11c \uae30\ub2a5 ON (\ub300\uae30 \uc911)</td></tr>"
+            + "<tr><td><b style='color:#2ECC71;'>&#10687;</b> / <b style='color:#1E96DC;'>&#10687;</b> / <b style='color:#FFB400;'>&#10687;</b> \uae5c\ubc15\uc784</td>"
+            +     "<td><b>\ud65c\uc131\ud654</b></td><td>\uc774\ubca4\ud2b8 \ubc1c\uc0dd \uc911 (\uc2e4\uc81c \ub3d9\uc791 \uc911)</td></tr>"
+            + "</table>"
+            + "<table cellpadding='3' cellspacing='0' border='0' style='margin-top:4px;'>"
+            + "<tr><td><b style='color:#2ECC71;'>&#9679;</b> \ube44\ud504\uc74c</td>"
+            +     "<td>\ub179\uc0c9 &mdash; \uc778\ubca4\ud1a0\ub9ac(\uc77d\uae30 \uc911) \uc0c1\ud0dc\uc5d0\uc11c \ud65c\uc131\ud654</td></tr>"
+            + "<tr><td><b style='color:#1E96DC;'>&#9679;</b> \ubd80\uc800</td>"
+            +     "<td>\ud30c\ub780\uc0c9 &mdash; \ubc18\ucd9c\uc54c\ub9bc \uc2dc \ub9b4\ub808\uc774 ON\uc73c\ub85c \ud65c\uc131\ud654</td></tr>"
+            + "<tr><td><b style='color:#FFB400;'>&#9679;</b> \uacbd\uad11\ub4f1</td>"
+            +     "<td>\uc8fc\ud669\uc0c9 &mdash; \ubc18\ucd9c\uc54c\ub9bc \uc2dc \ub9b4\ub808\uc774 ON\uc73c\ub85c \ud65c\uc131\ud654</td></tr>"
             + "</table>"
 
             + "<h3>\uc6b0\ud074\ub9ad \uba54\ub274</h3>"

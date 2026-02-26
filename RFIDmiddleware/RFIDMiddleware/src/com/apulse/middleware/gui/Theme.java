@@ -4,6 +4,8 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
+import java.awt.geom.Arc2D;
+import java.awt.geom.GeneralPath;
 
 public final class Theme {
 
@@ -65,8 +67,110 @@ public final class Theme {
     public static final int CARD_ROUND = 8;
     public static final int CARD_GAP = 6;
 
+    // --- Header icon factory ---
+    private static final int ICON_SIZE = 14;
+
+    public static Icon createHeaderIcon(String type) {
+        return new Icon() {
+            @Override
+            public int getIconWidth() { return ICON_SIZE; }
+            @Override
+            public int getIconHeight() { return ICON_SIZE; }
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+                g2.translate(x, y);
+                g2.setColor(HEADER_TEXT);
+                int s = ICON_SIZE;
+
+                switch (type) {
+                    case "connect": // 플러그: 원 + 방사선
+                        g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        g2.fillOval(4, 4, 6, 6);
+                        g2.drawLine(7, 1, 7, 3);
+                        g2.drawLine(7, 11, 7, 13);
+                        g2.drawLine(1, 7, 3, 7);
+                        g2.drawLine(11, 7, 13, 7);
+                        break;
+
+                    case "disconnect": // 끊김: 빈 원 + 대각선 슬래시
+                        g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        g2.drawOval(3, 3, 8, 8);
+                        g2.drawLine(2, 12, 12, 2);
+                        break;
+
+                    case "play": // 재생 삼각형
+                        GeneralPath tri = new GeneralPath();
+                        tri.moveTo(3, 1);
+                        tri.lineTo(13, 7);
+                        tri.lineTo(3, 13);
+                        tri.closePath();
+                        g2.fill(tri);
+                        break;
+
+                    case "stop": // 정지 사각형
+                        g2.fillRoundRect(2, 2, 10, 10, 2, 2);
+                        break;
+
+                    case "clear": // 순환 화살표 (리셋)
+                        g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        g2.draw(new Arc2D.Double(2, 2, 10, 10, 30, 280, Arc2D.OPEN));
+                        // 화살표 머리
+                        int ax = 10, ay = 4;
+                        g2.drawLine(ax, ay, ax + 3, ay);
+                        g2.drawLine(ax, ay, ax, ay - 3);
+                        break;
+
+                    case "database": // DB 실린더 (3단)
+                        g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        int dw = 10, dh = 3, dx = 2;
+                        // 상단 타원
+                        g2.drawOval(dx, 1, dw, dh);
+                        // 좌우 세로선
+                        g2.drawLine(dx, 2 + dh / 2, dx, 11);
+                        g2.drawLine(dx + dw, 2 + dh / 2, dx + dw, 11);
+                        // 중간 곡선
+                        g2.drawArc(dx, 5, dw, dh, 180, 180);
+                        // 하단 타원
+                        g2.drawArc(dx, 9, dw, dh, 180, 180);
+                        break;
+
+                    case "help": // 물음표 원
+                        g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        g2.drawOval(1, 1, 12, 12);
+                        g2.setFont(new Font("Arial", Font.BOLD, 10));
+                        FontMetrics fm = g2.getFontMetrics();
+                        String q = "?";
+                        g2.drawString(q, (s - fm.stringWidth(q)) / 2, fm.getAscent() + 1);
+                        break;
+
+                    case "settings": // 톱니바퀴
+                        g2.setStroke(new BasicStroke(1.3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        g2.drawOval(4, 4, 6, 6);
+                        double cx = 7, cy = 7;
+                        for (int i = 0; i < 8; i++) {
+                            double angle = Math.PI * 2 * i / 8;
+                            int x1 = (int) (cx + 4.5 * Math.cos(angle));
+                            int y1 = (int) (cy + 4.5 * Math.sin(angle));
+                            int x2 = (int) (cx + 6.5 * Math.cos(angle));
+                            int y2 = (int) (cy + 6.5 * Math.sin(angle));
+                            g2.drawLine(x1, y1, x2, y2);
+                        }
+                        break;
+                }
+                g2.dispose();
+            }
+        };
+    }
+
     // --- Helper: dark header button ---
     public static JButton createHeaderButton(String text, java.awt.event.ActionListener action) {
+        return createHeaderButton(text, null, action);
+    }
+
+    public static JButton createHeaderButton(String text, Icon icon, java.awt.event.ActionListener action) {
         JButton btn = new JButton(text) {
             @Override
             protected void paintComponent(Graphics g) {
@@ -87,7 +191,13 @@ public final class Theme {
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btn.setBorder(BorderFactory.createEmptyBorder(6, 14, 6, 14));
+        if (icon != null) {
+            btn.setIcon(icon);
+            btn.setIconTextGap(5);
+            btn.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 12));
+        } else {
+            btn.setBorder(BorderFactory.createEmptyBorder(6, 14, 6, 14));
+        }
         if (action != null) btn.addActionListener(action);
         return btn;
     }

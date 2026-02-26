@@ -113,7 +113,7 @@ public class MainFrame extends JFrame {
         headerPanel.setOpaque(false);
 
         // Left: title with accent background
-        JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0)) {
+        JPanel titlePanel = new JPanel(new GridBagLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
@@ -171,9 +171,11 @@ public class MainFrame extends JFrame {
         rightButtons.setOpaque(false);
 
         JButton helpBtn = Theme.createHeaderButton("도움말", Theme.createHeaderIcon("help"), e -> showHelpDialog());
+        JButton flowBtn = Theme.createHeaderButton("흐름도", Theme.createHeaderIcon("flow"), e -> openFlowDiagram());
         JButton configBtn = Theme.createHeaderButton("설정", Theme.createHeaderIcon("settings"), e -> openConfigDialog());
 
         rightButtons.add(helpBtn);
+        rightButtons.add(flowBtn);
         rightButtons.add(configBtn);
 
         headerPanel.add(rightButtons, BorderLayout.EAST);
@@ -373,7 +375,7 @@ public class MainFrame extends JFrame {
             + "</table>"
 
             + "<h3>\uc778\ub514\ucf00\uc774\ud130 (\uc6b0\uce21 3\uac1c)</h3>"
-            + "<p style='font-size:11px; margin:2px 0 4px 0;'>\uc704\uc5d0\uc11c \uc544\ub798\ub85c: \ube44\ud504\uc74c / \ubd80\uc800 / \uacbd\uad11\ub4f1</p>"
+            + "<p style='font-size:11px; margin:2px 0 4px 0;'>\uc704\uc5d0\uc11c \uc544\ub798\ub85c: \ubd80\uc800 / \uacbd\uad11\ub4f1 / \ube44\ud504\uc74c</p>"
             + "<table cellpadding='4' cellspacing='0' border='1' style='border-collapse:collapse;'>"
             + "<tr style='background:#E8E8E8;'><th>\ubaa8\uc591</th><th>\uc0c1\ud0dc</th><th>\uc124\uba85</th></tr>"
             + "<tr><td style='color:#C8CCD4;'><b>&#9633;</b> \ud68c\uc0c9 \ud14c\ub450\ub9ac \uc0ac\uac01\ud615</td>"
@@ -809,6 +811,24 @@ public class MainFrame extends JFrame {
         };
         Theme.styleTable(table);
         return table;
+    }
+
+    private void openFlowDiagram() {
+        try {
+            File htmlFile = new File("middleware-flow.html");
+            if (!htmlFile.exists()) {
+                JOptionPane.showMessageDialog(this,
+                    "middleware-flow.html 파일을 찾을 수 없습니다.\n경로: " + htmlFile.getAbsolutePath(),
+                    "파일 없음", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            java.awt.Desktop.getDesktop().browse(htmlFile.toURI());
+        } catch (Exception ex) {
+            AppLogger.error("MainFrame", "흐름도 열기 실패", ex);
+            JOptionPane.showMessageDialog(this,
+                "브라우저를 열 수 없습니다: " + ex.getMessage(),
+                "오류", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private void openConfigDialog() {

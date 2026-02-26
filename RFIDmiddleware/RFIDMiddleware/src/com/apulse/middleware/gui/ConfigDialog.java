@@ -30,31 +30,30 @@ public class ConfigDialog extends JDialog {
         table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
 
         // Column widths
+        // 0:이름 1:IP 2:포트 3:비프음 4:경광등 5:부저 6:출력1 7:출력2 8:출력3 9:출력4 10:드웰시간
         table.getColumnModel().getColumn(0).setPreferredWidth(80);
         table.getColumnModel().getColumn(1).setPreferredWidth(120);
         table.getColumnModel().getColumn(2).setPreferredWidth(55);
         table.getColumnModel().getColumn(3).setPreferredWidth(40);
         table.getColumnModel().getColumn(4).setPreferredWidth(50);
-        table.getColumnModel().getColumn(5).setPreferredWidth(45);
+        table.getColumnModel().getColumn(5).setPreferredWidth(50);
         table.getColumnModel().getColumn(6).setPreferredWidth(45);
         table.getColumnModel().getColumn(7).setPreferredWidth(45);
         table.getColumnModel().getColumn(8).setPreferredWidth(45);
-        table.getColumnModel().getColumn(9).setPreferredWidth(60);
-        table.getColumnModel().getColumn(10).setPreferredWidth(50);
+        table.getColumnModel().getColumn(9).setPreferredWidth(45);
+        table.getColumnModel().getColumn(10).setPreferredWidth(60);
 
-        // Boolean columns: checkbox renderer/editor
-        table.getColumnModel().getColumn(3).setCellRenderer(table.getDefaultRenderer(Boolean.class));
-        table.getColumnModel().getColumn(3).setCellEditor(table.getDefaultEditor(Boolean.class));
-        table.getColumnModel().getColumn(4).setCellRenderer(table.getDefaultRenderer(Boolean.class));
-        table.getColumnModel().getColumn(4).setCellEditor(table.getDefaultEditor(Boolean.class));
-        table.getColumnModel().getColumn(10).setCellRenderer(table.getDefaultRenderer(Boolean.class));
-        table.getColumnModel().getColumn(10).setCellEditor(table.getDefaultEditor(Boolean.class));
+        // Boolean columns: checkbox renderer/editor (부저, 경광등, 비프음)
+        for (int boolCol : new int[]{3, 4, 5}) {
+            table.getColumnModel().getColumn(boolCol).setCellRenderer(table.getDefaultRenderer(Boolean.class));
+            table.getColumnModel().getColumn(boolCol).setCellEditor(table.getDefaultEditor(Boolean.class));
+        }
 
         // Center-align number columns
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-        for (int i = 2; i <= 9; i++) {
-            if (i != 3 && i != 4) {
+        for (int i = 2; i <= 10; i++) {
+            if (i != 3 && i != 4 && i != 5) {
                 table.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
             }
         }
@@ -157,7 +156,7 @@ public class ConfigDialog extends JDialog {
     }
 
     private class ConfigTableModel extends AbstractTableModel {
-        private final String[] columns = {"\uc774\ub984", "IP \uc8fc\uc18c", "\ud3ec\ud2b8", "\ubd80\uc800", "\uacbd\uad11\ub4f1", "\ucd9c\ub8251", "\ucd9c\ub8252", "\ucd9c\ub8253", "\ucd9c\ub8254", "\ub4dc\uc6f0\uc2dc\uac04", "\ube44\ud504\uc74c"};
+        private final String[] columns = {"\uc774\ub984", "IP \uc8fc\uc18c", "\ud3ec\ud2b8", "\ube44\ud504\uc74c", "\uacbd\uad11\ub4f1", "\ubd80\uc800", "\ucd9c\ub8251", "\ucd9c\ub8252", "\ucd9c\ub8253", "\ucd9c\ub8254", "\ub4dc\uc6f0\uc2dc\uac04"};
         private final List<ReaderConfig> data;
 
         ConfigTableModel(List<ReaderConfig> configs) {
@@ -207,8 +206,8 @@ public class ConfigDialog extends JDialog {
 
         @Override
         public Class<?> getColumnClass(int col) {
-            if (col == 3 || col == 4 || col == 10) return Boolean.class;
-            if (col == 2 || (col >= 5 && col <= 9)) return Integer.class;
+            if (col == 3 || col == 4 || col == 5) return Boolean.class;
+            if (col == 2 || (col >= 6 && col <= 10)) return Integer.class;
             return String.class;
         }
 
@@ -219,14 +218,14 @@ public class ConfigDialog extends JDialog {
                 case 0: return cfg.getName();
                 case 1: return cfg.getIp();
                 case 2: return cfg.getPort();
-                case 3: return cfg.isBuzzerEnabled();
+                case 3: return cfg.isBeepEnabled();
                 case 4: return cfg.isWarningLightEnabled();
-                case 5: return cfg.getAntennaPowers()[0];
-                case 6: return cfg.getAntennaPowers()[1];
-                case 7: return cfg.getAntennaPowers()[2];
-                case 8: return cfg.getAntennaPowers()[3];
-                case 9: return cfg.getDwellTime();
-                case 10: return cfg.isBeepEnabled();
+                case 5: return cfg.isBuzzerEnabled();
+                case 6: return cfg.getAntennaPowers()[0];
+                case 7: return cfg.getAntennaPowers()[1];
+                case 8: return cfg.getAntennaPowers()[2];
+                case 9: return cfg.getAntennaPowers()[3];
+                case 10: return cfg.getDwellTime();
                 default: return "";
             }
         }
@@ -257,23 +256,23 @@ public class ConfigDialog extends JDialog {
                     try { cfg.setPort(Integer.parseInt(str)); } catch (NumberFormatException ignored) {}
                     break;
                 case 3:
-                    cfg.setBuzzerEnabled(Boolean.TRUE.equals(value));
+                    cfg.setBeepEnabled(Boolean.TRUE.equals(value));
                     break;
                 case 4:
                     cfg.setWarningLightEnabled(Boolean.TRUE.equals(value));
                     break;
-                case 5: case 6: case 7: case 8:
+                case 5:
+                    cfg.setBuzzerEnabled(Boolean.TRUE.equals(value));
+                    break;
+                case 6: case 7: case 8: case 9:
                     try {
                         int[] powers = cfg.getAntennaPowers();
-                        powers[col - 5] = Integer.parseInt(str);
+                        powers[col - 6] = Integer.parseInt(str);
                         cfg.setAntennaPowers(powers);
                     } catch (NumberFormatException ignored) {}
                     break;
-                case 9:
-                    try { cfg.setDwellTime(Integer.parseInt(str)); } catch (NumberFormatException ignored) {}
-                    break;
                 case 10:
-                    cfg.setBeepEnabled(Boolean.TRUE.equals(value));
+                    try { cfg.setDwellTime(Integer.parseInt(str)); } catch (NumberFormatException ignored) {}
                     break;
             }
         }

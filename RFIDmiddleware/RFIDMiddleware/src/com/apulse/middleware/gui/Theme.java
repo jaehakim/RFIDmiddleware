@@ -146,6 +146,15 @@ public final class Theme {
                         g2.drawString(q, (s - fm.stringWidth(q)) / 2, fm.getAscent() + 1);
                         break;
 
+                    case "flow": // 흐름도: 노드 + 화살표
+                        g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        g2.drawRoundRect(1, 1, 5, 4, 2, 2);
+                        g2.drawRoundRect(8, 1, 5, 4, 2, 2);
+                        g2.drawRoundRect(4, 9, 5, 4, 2, 2);
+                        g2.drawLine(6, 5, 6, 9);
+                        g2.drawLine(10, 5, 7, 9);
+                        break;
+
                     case "settings": // 톱니바퀴
                         g2.setStroke(new BasicStroke(1.3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                         g2.drawOval(4, 4, 6, 6);

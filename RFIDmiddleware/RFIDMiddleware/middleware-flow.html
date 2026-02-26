@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>RFID 미들웨어 기능 다이어그램</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  body {
+    font-family: '맑은 고딕', sans-serif;
+    background: #f0f2f5;
+    margin: 0;
+    padding: 20px;
+  }
+  h1 {
+    text-align: center;
+    color: #1B2A4A;
+    margin-bottom: 8px;
+  }
+  h2 {
+    color: #1B2A4A;
+    border-bottom: 2px solid #1B2A4A;
+    padding-bottom: 6px;
+    margin-top: 40px;
+  }
+  .diagram-section {
+    background: white;
+    border-radius: 10px;
+    padding: 24px;
+    margin: 16px auto;
+    max-width: 1200px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .mermaid {
+    display: flex;
+    justify-content: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>RFID 미들웨어 - 기능 다이어그램</h1>
+
+<!-- 1. 전체 시스템 구성 -->
+<div class="diagram-section">
+<h2>1. 전체 시스템 구성</h2>
+<div class="mermaid">
+graph TB
+    subgraph EXT["외부 시스템"]
+        API_CLIENT["REST API 클라이언트<br/>(포트 18080)"]
+        MARIADB[("MariaDB<br/>10.0.0.148:13306<br/>tagflow DB")]
+        EXTERNAL["외부 관리 시스템<br/>(자산/반출허용 관리)"]
+    end
+
+    subgraph MW["RFID 미들웨어"]
+        MAIN["MainFrame<br/>(GUI 메인 윈도우)"]
+        RM["ReaderManager<br/>(멀티 리더기 관리)"]
+        API["ApiServer<br/>(REST API :18080)"]
+        AR["AssetRepository<br/>(자산/반출 캐시)"]
+        TR["TagRepository<br/>(태그 배치 저장)"]
+        DM["DatabaseManager<br/>(DB 연결 관리)"]
+        WLC["WarningLightController<br/>(경광등/부저 제어)"]
+    end
+
+    subgraph READERS["RFID 리더기"]
+        R1["Reader-01<br/>192.168.0.143"]
+        R2["Reader-02..N"]
+    end
+
+    READERS -->|"TCP 태그 수신"| RM
+    RM --> MAIN
+    MAIN --> WLC
+    API_CLIENT -->|"HTTP"| API
+    API --> RM
+    API --> AR
+    DM --> MARIADB
+    TR --> DM
+    AR --> DM
+    EXTERNAL -->|"INSERT/UPDATE"| MARIADB
+
+    style EXT fill:#e8ecf1,stroke:#1B2A4A
+    style MW fill:#dbeafe,stroke:#1B2A4A
+    style READERS fill:#fef3c7,stroke:#b45309
+</div>
+</div>
+
+<!-- 2. 태그 감지 처리 흐름 -->
+<div class="diagram-section">
+<h2>2. 태그 감지 시 처리 흐름</h2>
+<div class="mermaid">
+flowchart TD
+    START(["리더기에서 태그 감지<br/>(TCP 수신 스레드)"])
+    MASK{"EPC Mask<br/>필터 통과?"}
+    ASSET{"AssetRepository<br/>자산정보 조회<br/>(메모리 캐시 O(1))"}
+    IS_ASSET{"assets 테이블에<br/>등록된 EPC?"}
+    PERMIT{"export_permissions<br/>반출허용 여부?"}
+
+    DISPLAY["TagDataPanel에 표시<br/>(시간, 리더기, EPC, RSSI,<br/>자산번호, 자산명, 부서)"]
+    DEDUP{"Caffeine 캐시<br/>중복 체크<br/>(TTL 내 동일 EPC?)"}
+
+    DB_INSERT["tag_reads INSERT<br/>(BlockingQueue → 배치 처리<br/>50건/500ms)"]
+    RECENT["최근 태그 목록 추가"]
+
+    ALERT_DEDUP{"shouldAlert<br/>30초 내 중복?"}
+    LIGHT_CHECK{"경광등 설정<br/>적용(1)?"}
+    BUZZER_CHECK{"부저 설정<br/>적용(1)?"}
+    LIGHT_ON["경광등 ON<br/>(릴레이1 빨간등)<br/>5초 자동 소등"]
+    BUZZER_ON["부저 ON<br/>(릴레이2)<br/>5초 자동 OFF"]
+    ALERT_DB["export_alerts INSERT<br/>(단건 즉시 실행)"]
+    LOG_ALERT["로그 기록<br/>UNAUTHORIZED EXPORT"]
+
+    SKIP_LOG["MASK 필터 로그"]
+    NORMAL["일반 태그 처리<br/>(자산 아님)"]
+    PERMITTED["정상 반출<br/>(초록 배경)"]
+
+    START --> MASK
+    MASK -->|"불일치"| SKIP_LOG
+    MASK -->|"통과"| ASSET
+    ASSET --> IS_ASSET
+    IS_ASSET -->|"아니오"| NORMAL
+    IS_ASSET -->|"예"| PERMIT
+    PERMIT -->|"허용됨"| PERMITTED
+    PERMIT -->|"미허용"| ALERT_DEDUP
+
+    NORMAL --> DISPLAY
+    PERMITTED --> DISPLAY
+    DISPLAY --> DEDUP
+    DEDUP -->|"캐시 HIT<br/>(중복)"| UPDATE_ONLY["횟수만 업데이트"]
+    DEDUP -->|"캐시 MISS<br/>(신규)"| DB_INSERT
+    DB_INSERT --> RECENT
+
+    ALERT_DEDUP -->|"중복"| DISPLAY
+    ALERT_DEDUP -->|"신규 알림"| LIGHT_CHECK
+    LIGHT_CHECK -->|"적용"| LIGHT_ON
+    LIGHT_CHECK -->|"미적용"| BUZZER_CHECK
+    LIGHT_ON --> BUZZER_CHECK
+    BUZZER_CHECK -->|"적용"| BUZZER_ON
+    BUZZER_CHECK -->|"미적용"| ALERT_DB
+    BUZZER_ON --> ALERT_DB
+    ALERT_DB --> LOG_ALERT
+    LOG_ALERT --> DISPLAY
+
+    style START fill:#0078FF,color:white
+    style LIGHT_ON fill:#DC0000,color:white
+    style BUZZER_ON fill:#1E96DC,color:white
+    style ALERT_DB fill:#FF6B6B,color:white
+    style LOG_ALERT fill:#FFB400,color:white
+    style DB_INSERT fill:#2ECC71,color:white
+    style PERMITTED fill:#E8F5E8,stroke:#006E00
+    style NORMAL fill:#f0f0f0
+    style SKIP_LOG fill:#ddd
+</div>
+</div>
+
+<!-- 3. 리더기 상태 카드 인디케이터 -->
+<div class="diagram-section">
+<h2>3. 리더기 상태 카드 인디케이터</h2>
+<div class="mermaid">
+graph LR
+    subgraph STATUS["상태 색상 (좌측 바 + 원)"]
+        S1["⬜ 미연결<br/>(회색)"]
+        S2["🟨 연결 중<br/>(노랑)"]
+        S3["🟩 연결됨<br/>(초록)"]
+        S4["🟦 읽기 중<br/>(파랑, 점멸)"]
+        S5["🟥 오류<br/>(빨강)"]
+    end
+
+    subgraph IND["인디케이터 3종 (우측)"]
+        direction TB
+        I1["🟢 비프음<br/>녹색<br/>READING시 활성화"]
+        I2["🔵 부저<br/>파랑<br/>릴레이 ON시 활성화"]
+        I3["🟠 경광등<br/>주황<br/>릴레이 ON시 활성화"]
+    end
+
+    subgraph SHAPE["모양별 상태"]
+        SH1["□ 회색 테두리 사각형<br/>→ 미사용 (config OFF)"]
+        SH2["● 컬러 원형<br/>→ 사용 (config ON, 대기)"]
+        SH3["● 컬러 원형 깜박임<br/>→ 활성화 (이벤트 발생)"]
+    end
+
+    style STATUS fill:#f8f9fa,stroke:#1B2A4A
+    style IND fill:#f0f8ff,stroke:#1B2A4A
+    style SHAPE fill:#fff8e1,stroke:#b45309
+</div>
+</div>
+
+<!-- 4. 경광등/부저/비프음 제어 -->
+<div class="diagram-section">
+<h2>4. 경광등 / 부저 / 비프음 제어</h2>
+<div class="mermaid">
+flowchart LR
+    subgraph BEEP["비프음 (내장)"]
+        B_CFG["readers.cfg<br/>비프음=1/0"]
+        B_SDK["SDK<br/>setBuzzerEnable()"]
+        B_WHEN["연결 직후 적용<br/>READING 중 소리"]
+        B_CFG --> B_SDK --> B_WHEN
+    end
+
+    subgraph BUZZER["부저 (릴레이2)"]
+        BZ_CFG["readers.cfg<br/>부저=1/0"]
+        BZ_RELAY["릴레이 2번<br/>ON/OFF"]
+        BZ_WHEN["미허가 반출 감지 시<br/>5초 자동 OFF"]
+        BZ_CFG --> BZ_RELAY --> BZ_WHEN
+    end
+
+    subgraph LIGHT["경광등 (릴레이1)"]
+        L_CFG["readers.cfg<br/>경광등=1/0"]
+        L_RELAY["릴레이 1번<br/>빨간등 ON/OFF"]
+        L_WHEN["미허가 반출 감지 시<br/>5초 자동 소등"]
+        L_CFG --> L_RELAY --> L_WHEN
+    end
+
+    TRIGGER(["미허가 반출 감지"])
+    TRIGGER --> BUZZER
+    TRIGGER --> LIGHT
+
+    READING(["인벤토리 시작<br/>(READING)"])
+    READING --> BEEP
+
+    style BEEP fill:#e8f5e8,stroke:#2ECC71
+    style BUZZER fill:#e0f0ff,stroke:#1E96DC
+    style LIGHT fill:#fff3e0,stroke:#FFB400
+    style TRIGGER fill:#DC0000,color:white
+    style READING fill:#0078FF,color:white
+</div>
+</div>
+
+<!-- 5. DB 데이터 흐름 -->
+<div class="diagram-section">
+<h2>5. DB 테이블별 데이터 흐름</h2>
+<div class="mermaid">
+flowchart TB
+    subgraph TABLES["MariaDB - tagflow"]
+        T1[("assets<br/>자산 마스터")]
+        T2[("export_permissions<br/>반출허용 목록")]
+        T3[("export_alerts<br/>반출알림 이력")]
+        T4[("tag_reads<br/>태그 읽기 이력")]
+    end
+
+    EXT_SYS["외부 시스템 + API"]
+    MW_WRITE["미들웨어 (INSERT)"]
+    CACHE["메모리 캐시<br/>(30초 주기 갱신)"]
+
+    EXT_SYS -->|"INSERT/UPDATE"| T1
+    EXT_SYS -->|"INSERT/UPDATE/DELETE"| T2
+    T1 -->|"SELECT *"| CACHE
+    T2 -->|"SELECT (유효기간)"| CACHE
+
+    MW_WRITE -->|"미허가 반출 감지"| T3
+    MW_WRITE -->|"태그 감지 (배치)"| T4
+
+    CACHE -->|"자산정보 조회<br/>O(1) HashMap"| TAG_CHECK["태그 감지 시<br/>자산/반출 판단"]
+    TAG_CHECK -->|"미허가 반출"| MW_WRITE
+
+    style TABLES fill:#f0f0f0,stroke:#1B2A4A
+    style EXT_SYS fill:#e8ecf1,stroke:#1B2A4A
+    style MW_WRITE fill:#ffebee,stroke:#DC0000
+    style CACHE fill:#e8f5e8,stroke:#2ECC71
+    style TAG_CHECK fill:#dbeafe,stroke:#0078FF
+</div>
+</div>
+
+<!-- 6. 백그라운드 작업 -->
+<div class="diagram-section">
+<h2>6. 백그라운드 스레드 및 주기적 작업</h2>
+<div class="mermaid">
+flowchart LR
+    subgraph BG["백그라운드 작업"]
+        direction TB
+        ASSET_REFRESH["AssetRepository<br/>30초 주기 갱신<br/>━━━━━━━━━━━━<br/>assets → HashMap 캐시<br/>permissions → Set 캐시"]
+        TAG_WRITER["TagDB-Writer 스레드<br/>━━━━━━━━━━━━<br/>BlockingQueue 폴링<br/>50건 or 500ms마다<br/>executeBatch()"]
+        WL_TIMER["WarningLight 타이머<br/>━━━━━━━━━━━━<br/>경광등: 5초 후 OFF<br/>부저: 5초 후 OFF<br/>재감지 시 리셋"]
+    end
+
+    subgraph TCP["TCP 수신 스레드 (리더기별)"]
+        TCP1["Reader-01 수신"]
+        TCP2["Reader-02 수신"]
+        TCPN["Reader-N 수신"]
+    end
+
+    TCP -->|"태그 데이터"| EDT["Swing EDT<br/>(UI 갱신)"]
+    EDT -->|"offer()"| TAG_WRITER
+
+    style BG fill:#f8f9fa,stroke:#1B2A4A
+    style TCP fill:#fff8e1,stroke:#b45309
+    style EDT fill:#dbeafe,stroke:#0078FF
+</div>
+</div>
+
+<script>
+mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+        primaryColor: '#dbeafe',
+        primaryTextColor: '#1B2A4A',
+        primaryBorderColor: '#1B2A4A',
+        lineColor: '#4A5568',
+        fontSize: '13px'
+    },
+    flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis'
+    }
+});
+</script>
+
+</body>
+</html>

@@ -273,10 +273,16 @@ public class ReaderIconComponent extends JPanel {
         FontMetrics fm = g2.getFontMetrics();
         g2.drawString(readerName, textLeft, fm.getAscent() + 3);
 
-        // Row 2: status circle + label (center-bottom area)
-        int circleD = 22;
-        int circleCY = midY + 9;
-        int circleX = textLeft;
+        // Row 2: status circle (center of card area below name)
+        int circleD = 34;
+        int nameBottom = fm.getAscent() + 3 + fm.getDescent();
+        int availTop = nameBottom + 2;
+        int availBottom = h - 4;
+        int circleCY = (availTop + availBottom) / 2;
+        int contentLeft = textLeft;
+        int contentRight = w - 28;
+        int circleCX = (contentLeft + contentRight) / 2;
+        int circleX = circleCX - circleD / 2;
         int circleY = circleCY - circleD / 2;
 
         // Glow/pulse for READING state
@@ -300,15 +306,9 @@ public class ReaderIconComponent extends JPanel {
 
         // Inner highlight
         g2.setColor(new Color(255, 255, 255, 70));
-        g2.fillOval(circleX + 3, circleY + 2, circleD / 2, circleD / 2 - 1);
+        g2.fillOval(circleX + 4, circleY + 3, circleD / 2, circleD / 2 - 1);
 
-        // Status label (right of circle, smaller font)
-        g2.setFont(new Font("\ub9d1\uc740 \uace0\ub515", Font.PLAIN, 8));
-        fm = g2.getFontMetrics();
-        g2.setColor(Theme.CARD_TEXT);
-        g2.drawString(status.getLabel(), circleX + circleD + 3, circleCY + fm.getAscent() / 2 - 1);
-
-        // 3 indicators: beep / buzzer / light (right side, vertical)
+        // 3 indicators: beep / light / buzzer (비프음 → 경광등 → 부저)
         // OFF=gray square, ON=color circle, ACTIVE=color circle blinking
         int indSize = 10;
         int indGap = 3;
@@ -316,15 +316,18 @@ public class ReaderIconComponent extends JPanel {
         int indX = w - indSize - 8;
         int indStartY = midY - totalInd / 2;
 
+        // 1) 비프음
         Color beepColor = new Color(0x2E, 0xCC, 0x71);
         boolean beepActive = beepEnabled && status == ReaderStatus.READING;
         drawIndicator(g2, indX, indStartY, indSize, beepEnabled, beepActive, beepColor);
 
-        int buzIY = indStartY + indSize + indGap;
-        drawIndicator(g2, indX, buzIY, indSize, buzzerConfigEnabled, buzzerOn, Theme.INDICATOR_BUZZER_ON);
-
-        int lightIY = buzIY + indSize + indGap;
+        // 2) 경광등
+        int lightIY = indStartY + indSize + indGap;
         drawIndicator(g2, indX, lightIY, indSize, lightConfigEnabled, lightOn, Theme.INDICATOR_LIGHT_ON);
+
+        // 3) 부저
+        int buzzerIY = lightIY + indSize + indGap;
+        drawIndicator(g2, indX, buzzerIY, indSize, buzzerConfigEnabled, buzzerOn, Theme.INDICATOR_BUZZER_ON);
 
         g2.dispose();
     }

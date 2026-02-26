@@ -25,6 +25,7 @@ mkdir "%RUN_TMP%"
 mkdir "%RUN_TMP%\config"
 
 copy /y "%BASE_DIR%%JAR_NAME%" "%RUN_TMP%\" >nul
+if exist "%BASE_DIR%middleware-flow.html" copy /y "%BASE_DIR%middleware-flow.html" "%RUN_TMP%\" >nul
 if exist "%CFG_DIR%\readers.cfg" copy /y "%CFG_DIR%\readers.cfg" "%RUN_TMP%\config\" >nul
 if exist "%CFG_DIR%\database.cfg" copy /y "%CFG_DIR%\database.cfg" "%RUN_TMP%\config\" >nul
 

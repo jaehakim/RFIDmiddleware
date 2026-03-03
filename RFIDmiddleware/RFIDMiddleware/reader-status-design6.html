@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFID Reader Status - Hexagonal Honeycomb</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#0F1117;--surface:#1A1D27;--surface2:#232733;--border:#2E3345;
+    --text:#E8EAF0;--text2:#9CA3B8;--text3:#5A6178;
+    --reading:#6C8FFF;--reading-bg:rgba(108,143,255,.12);--reading-glow:rgba(108,143,255,.35);
+    --connected:#34D399;--connected-bg:rgba(52,211,153,.12);--connected-glow:rgba(52,211,153,.35);
+    --error:#F87171;--error-bg:rgba(248,113,113,.12);--error-glow:rgba(248,113,113,.35);
+    --disconnected:#4B5268;--disconnected-bg:rgba(75,82,104,.12);--disconnected-glow:rgba(75,82,104,.2);
+    --connecting:#FBBF24;--connecting-bg:rgba(251,191,36,.12);--connecting-glow:rgba(251,191,36,.35);
+    --beep:#34D399;--light:#FBBF24;--buzzer:#6C8FFF;
+  }
+  body{font-family:'Segoe UI','Malgun Gothic',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+  /* Tag */
+  .tag{background:#0A0C12;text-align:center;padding:10px;font-size:12px;color:var(--text3);letter-spacing:1px}
+  .tag strong{color:var(--text2);font-size:14px}
+
+  /* Header */
+  .hd{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between}
+  .hd-left{display:flex;align-items:center;gap:16px}
+  .hd-title{font-size:18px;font-weight:800;letter-spacing:-.5px}
+  .hd-live{font-size:10px;font-weight:700;color:var(--reading);background:var(--reading-bg);padding:3px 10px;border-radius:10px;display:flex;align-items:center;gap:5px}
+  .hd-live span{width:6px;height:6px;border-radius:50%;background:var(--reading);animation:pulse 1.5s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .hd-btns{display:flex;gap:6px}
+  .hd-btn{background:var(--surface2);border:1px solid var(--border);padding:7px 14px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text2);transition:all .15s}
+  .hd-btn:hover{background:var(--border);color:var(--text)}
+  .hd-btn.pri{background:var(--reading);color:#fff;border-color:var(--reading)}
+
+  /* Main Layout */
+  .main{display:flex;min-height:calc(100vh - 100px)}
+
+  /* Left: Stats Column */
+  .stats{width:220px;flex-shrink:0;padding:20px 16px;border-right:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;gap:12px}
+  .stat-title{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+
+  /* Big number */
+  .big-num{text-align:center;padding:16px 0}
+  .big-num .num{font-size:56px;font-weight:900;line-height:1;background:linear-gradient(135deg,var(--reading),var(--connected));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .big-num .lbl{font-size:11px;color:var(--text3);margin-top:4px}
+
+  /* Stat cards */
+  .stat-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:all .2s;border:1px solid transparent}
+  .stat-card:hover{border-color:var(--border)}
+  .stat-card.active{border-color:var(--reading)}
+  .sc-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex-shrink:0}
+  .sc-info{flex:1;min-width:0}
+  .sc-label{font-size:11px;color:var(--text2);font-weight:600}
+  .sc-val{font-size:20px;font-weight:800;line-height:1.2}
+  .sc-bar{height:3px;border-radius:2px;background:var(--surface2);margin-top:4px;overflow:hidden}
+  .sc-fill{height:100%;border-radius:2px;transition:width .5s}
+
+  /* Divider */
+  .stat-div{height:1px;background:var(--border);margin:4px 0}
+
+  /* Legend */
+  .legend{margin-top:auto}
+  .legend-title{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+  .leg-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);padding:3px 0}
+  .leg-dot{width:8px;height:8px;border-radius:3px;flex-shrink:0}
+
+  /* Center: Honeycomb */
+  .center{flex:1;padding:20px;display:flex;flex-direction:column;align-items:center;overflow:auto}
+  .center-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;width:100%;max-width:740px}
+  .center-title{font-size:13px;font-weight:700;flex:1}
+  .search-box{position:relative}
+  .search-box input{width:160px;padding:6px 10px 6px 28px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;outline:none;background:var(--surface2);color:var(--text);transition:all .2s}
+  .search-box input:focus{border-color:var(--reading);width:200px}
+  .search-box::before{content:"\1F50D";position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:11px}
+  .view-btns{display:flex;gap:3px}
+  .view-btn{background:var(--surface2);border:1px solid var(--border);padding:5px 10px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text3);transition:all .15s}
+  .view-btn:hover{color:var(--text2)}
+  .view-btn.active{background:var(--reading);color:#fff;border-color:var(--reading)}
+
+  /* Honeycomb Grid */
+  .honeycomb{position:relative;width:100%;max-width:740px;margin:0 auto}
+  .hex-row{display:flex;justify-content:center;gap:6px;margin-bottom:-14px}
+  .hex-row.offset{margin-left:33px}
+
+  /* Hexagon */
+  .hex{
+    width:60px;height:68px;position:relative;cursor:pointer;
+    clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+    transition:all .2s;z-index:1;
+  }
+  .hex:hover{transform:scale(1.15);z-index:10}
+  .hex-inner{
+    position:absolute;inset:2px;
+    clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    transition:all .2s;
+  }
+  .hex-num{font-size:13px;font-weight:900;line-height:1}
+  .hex-name{font-size:7px;font-weight:600;opacity:.7;margin-top:1px;white-space:nowrap}
+  .hex-inds{display:flex;gap:2px;margin-top:3px}
+  .hex-ind{width:4px;height:4px;border-radius:50%}
+  .hex-ind.off{background:rgba(255,255,255,.15)}
+
+  /* Hex status colors */
+  .hex[data-s="reading"]{background:var(--reading)}
+  .hex[data-s="reading"] .hex-inner{background:rgba(108,143,255,.85)}
+  .hex[data-s="reading"]:hover{box-shadow:0 0 20px var(--reading-glow),0 0 40px rgba(108,143,255,.15)}
+
+  .hex[data-s="connected"]{background:var(--connected)}
+  .hex[data-s="connected"] .hex-inner{background:rgba(52,211,153,.8)}
+  .hex[data-s="connected"]:hover{box-shadow:0 0 20px var(--connected-glow),0 0 40px rgba(52,211,153,.15)}
+
+  .hex[data-s="error"]{background:var(--error)}
+  .hex[data-s="error"] .hex-inner{background:rgba(248,113,113,.85)}
+  .hex[data-s="error"]:hover{box-shadow:0 0 20px var(--error-glow),0 0 40px rgba(248,113,113,.15)}
+  .hex[data-s="error"]{animation:errPulse 2s infinite}
+  @keyframes errPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.2)}}
+
+  .hex[data-s="disconnected"]{background:var(--disconnected)}
+  .hex[data-s="disconnected"] .hex-inner{background:rgba(75,82,104,.85)}
+
+  .hex[data-s="connecting"]{background:var(--connecting)}
+  .hex[data-s="connecting"] .hex-inner{background:rgba(251,191,36,.8)}
+  .hex[data-s="connecting"] .hex-num{color:#422006}
+  .hex[data-s="connecting"] .hex-name{color:#422006}
+
+  /* Hex tooltip */
+  .hex .htip{
+    display:none;position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);
+    background:var(--surface);border:1px solid var(--border);color:var(--text);
+    padding:12px 16px;border-radius:12px;font-size:11px;white-space:nowrap;z-index:200;
+    box-shadow:0 12px 32px rgba(0,0,0,.4);line-height:1.7;min-width:180px;
+  }
+  .hex:hover .htip{display:block}
+  .htip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--surface)}
+  .htip-name{font-weight:800;font-size:13px;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+  .htip-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:5px}
+  .htip-row{color:var(--text2);display:flex;justify-content:space-between;gap:16px}
+  .htip-row b{color:var(--text)}
+  .htip-inds{display:flex;gap:10px;margin-top:4px;padding-top:4px;border-top:1px solid var(--border)}
+  .htip-ind{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--text2)}
+  .htip-id{width:6px;height:6px;border-radius:50%}
+
+  /* Compact Grid View */
+  .compact-grid{display:none;width:100%;max-width:740px;gap:4px;flex-wrap:wrap;justify-content:center}
+  .compact-grid.visible{display:flex}
+  .honeycomb.hidden{display:none}
+
+  .cg-cell{
+    width:86px;height:44px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    font-size:10px;font-weight:700;cursor:pointer;transition:all .15s;position:relative;border:1px solid transparent;
+    overflow:visible;
+  }
+  .cg-cell:hover{transform:translateY(-2px);z-index:10}
+  .cg-cell[data-s="reading"]{background:var(--reading-bg);color:var(--reading);border-color:rgba(108,143,255,.2)}
+  .cg-cell[data-s="reading"]:hover{border-color:var(--reading);box-shadow:0 4px 12px var(--reading-glow)}
+  .cg-cell[data-s="connected"]{background:var(--connected-bg);color:var(--connected);border-color:rgba(52,211,153,.2)}
+  .cg-cell[data-s="connected"]:hover{border-color:var(--connected);box-shadow:0 4px 12px var(--connected-glow)}
+  .cg-cell[data-s="error"]{background:var(--error-bg);color:var(--error);border-color:rgba(248,113,113,.2)}
+  .cg-cell[data-s="error"]:hover{border-color:var(--error);box-shadow:0 4px 12px var(--error-glow)}
+  .cg-cell[data-s="disconnected"]{background:var(--disconnected-bg);color:var(--disconnected);border-color:rgba(75,82,104,.15)}
+  .cg-cell[data-s="disconnected"]:hover{border-color:var(--disconnected)}
+  .cg-cell[data-s="connecting"]{background:var(--connecting-bg);color:var(--connecting);border-color:rgba(251,191,36,.2)}
+  .cg-top{display:flex;align-items:center;gap:4px}
+  .cg-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+  .cg-name{font-size:11px;font-weight:800;white-space:nowrap}
+  .cg-inds{display:flex;gap:2px}
+  .cg-ind{width:4px;height:4px;border-radius:50%}
+  .cg-ind.off{background:rgba(255,255,255,.12)}
+  .cg-cell[data-s="reading"] .cg-dot{background:var(--reading);animation:pulse 1.2s infinite}
+  .cg-cell[data-s="connected"] .cg-dot{background:var(--connected)}
+  .cg-cell[data-s="error"] .cg-dot{background:var(--error);animation:pulse .6s infinite}
+  .cg-cell[data-s="disconnected"] .cg-dot{background:var(--disconnected)}
+  .cg-cell[data-s="connecting"] .cg-dot{background:var(--connecting);animation:pulse 1s infinite}
+  .cg-cell .htip{bottom:calc(100% + 8px);pointer-events:none}
+
+  /* Right: Detail Panel */
+  .detail{width:260px;flex-shrink:0;border-left:1px solid var(--border);background:var(--surface);padding:20px 16px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+  .detail-title{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px}
+  .detail-empty{font-size:12px;color:var(--text3);font-style:italic;text-align:center;padding:30px 0}
+
+  /* Selected reader detail */
+  .rd-head{text-align:center;padding:12px 0}
+  .rd-hex-wrap{display:inline-block;margin-bottom:8px}
+  .rd-hex{width:72px;height:82px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center}
+  .rd-hex-inner{width:66px;height:76px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900}
+  .rd-name{font-size:16px;font-weight:800}
+  .rd-status{font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;display:inline-block;margin-top:4px}
+
+  .rd-info{display:flex;flex-direction:column;gap:6px}
+  .rd-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)}
+  .rd-row:last-child{border:none}
+  .rd-lbl{font-size:11px;color:var(--text3)}
+  .rd-val{font-size:12px;font-weight:700}
+
+  .rd-inds{display:flex;gap:8px;justify-content:center;padding:10px 0}
+  .rd-ind{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:8px;background:var(--surface2)}
+  .rd-ind-dot{width:10px;height:10px;border-radius:50%}
+  .rd-ind-lbl{font-size:9px;color:var(--text3);font-weight:600}
+  .rd-ind-val{font-size:10px;font-weight:700}
+
+  /* Activity list */
+  .act-list{display:flex;flex-direction:column;gap:4px}
+  .act-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;background:var(--surface2);font-size:10px}
+  .act-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+  .act-text{color:var(--text2);flex:1}
+  .act-time{color:var(--text3);font-family:'Consolas',monospace;font-size:9px}
+
+  /* Bottom bar */
+  .bot{background:var(--surface);border-top:1px solid var(--border);padding:8px 28px;font-size:10px;color:var(--text3);display:flex;justify-content:space-between}
+  .bot b{color:var(--text2)}
+  .bot span{font-family:'Consolas',monospace}
+
+  /* Notes */
+  .notes{max-width:920px;margin:20px auto 50px;padding:0 28px}
+  .nc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px}
+  .nc h2{font-size:15px;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+  .nc h3{font-size:13px;color:var(--text2);margin:16px 0 8px}
+  .nc ul{font-size:12px;color:var(--text2);line-height:1.8;padding-left:20px}
+  .ng2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .ni2{background:var(--surface2);border-radius:10px;padding:14px}
+  .ni2 h4{font-size:12px;margin-bottom:5px}
+  .ni2 p{font-size:11px;color:var(--text2);line-height:1.7;margin:0}
+  .cmp{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+  .cmp th,.cmp td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--border)}
+  .cmp th{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+  .cmp td{color:var(--text2)}
+  .cmp tr:last-child td{border:none}
+  .cmp td:first-child{font-weight:700;color:var(--text)}
+
+  /* Reading animation on hex */
+  .hex[data-s="reading"]::before{
+    content:'';position:absolute;inset:-3px;
+    clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+    background:var(--reading);opacity:.3;animation:hexGlow 2s infinite;z-index:-1;
+  }
+  @keyframes hexGlow{0%,100%{opacity:.15;inset:-3px}50%{opacity:.35;inset:-5px}}
+</style>
+</head>
+<body>
+
+<div class="tag"><strong>Design #6 &mdash; Hexagonal Honeycomb Dashboard</strong><br>Hex Grid + Stats Sidebar + Detail Panel</div>
+
+<!-- Header -->
+<div class="hd">
+  <div class="hd-left">
+    <div class="hd-title">RFID Middleware</div>
+    <div class="hd-live"><span></span> LIVE</div>
+  </div>
+  <div class="hd-btns">
+    <button class="hd-btn pri">&#9654; Start All</button>
+    <button class="hd-btn">&#9632; Stop</button>
+    <button class="hd-btn">&#128268; Connect</button>
+    <button class="hd-btn">&#128263; Disconnect</button>
+    <button class="hd-btn">&#9881;</button>
+  </div>
+</div>
+
+<!-- Main 3-column layout -->
+<div class="main">
+
+  <!-- Left Stats -->
+  <div class="stats">
+    <div class="big-num">
+      <div class="num">50</div>
+      <div class="lbl">Total Readers</div>
+    </div>
+
+    <div class="stat-div"></div>
+    <div class="stat-title">Status Breakdown</div>
+
+    <div class="stat-card" data-filter="reading" onclick="filterStatus('reading')">
+      <div class="sc-icon" style="background:var(--reading-bg);color:var(--reading)">8</div>
+      <div class="sc-info">
+        <div class="sc-label">Reading</div>
+        <div class="sc-bar"><div class="sc-fill" style="width:16%;background:var(--reading)"></div></div>
+      </div>
+    </div>
+
+    <div class="stat-card" data-filter="connected" onclick="filterStatus('connected')">
+      <div class="sc-icon" style="background:var(--connected-bg);color:var(--connected)">12</div>
+      <div class="sc-info">
+        <div class="sc-label">Connected</div>
+        <div class="sc-bar"><div class="sc-fill" style="width:24%;background:var(--connected)"></div></div>
+      </div>
+    </div>
+
+    <div class="stat-card" data-filter="connecting" onclick="filterStatus('connecting')">
+      <div class="sc-icon" style="background:var(--connecting-bg);color:var(--connecting)">0</div>
+      <div class="sc-info">
+        <div class="sc-label">Connecting</div>
+        <div class="sc-bar"><div class="sc-fill" style="width:0%;background:var(--connecting)"></div></div>
+      </div>
+    </div>
+
+    <div class="stat-card" data-filter="error" onclick="filterStatus('error')">
+      <div class="sc-icon" style="background:var(--error-bg);color:var(--error)">3</div>
+      <div class="sc-info">
+        <div class="sc-label">Error</div>
+        <div class="sc-bar"><div class="sc-fill" style="width:6%;background:var(--error)"></div></div>
+      </div>
+    </div>
+
+    <div class="stat-card" data-filter="disconnected" onclick="filterStatus('disconnected')">
+      <div class="sc-icon" style="background:var(--disconnected-bg);color:var(--disconnected)">27</div>
+      <div class="sc-info">
+        <div class="sc-label">Disconnected</div>
+        <div class="sc-bar"><div class="sc-fill" style="width:54%;background:var(--disconnected)"></div></div>
+      </div>
+    </div>
+
+    <div class="stat-div"></div>
+
+    <div class="legend">
+      <div class="legend-title">Indicators</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--beep)"></div> Beep (Reader Buzzer)</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--light)"></div> Warning Light</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--buzzer)"></div> External Buzzer</div>
+    </div>
+  </div>
+
+  <!-- Center: Honeycomb -->
+  <div class="center">
+    <div class="center-head">
+      <div class="center-title" id="centerTitle">All Readers (50)</div>
+      <div class="search-box"><input type="text" placeholder="Search reader..." id="searchInput" oninput="render()"></div>
+      <div class="view-btns">
+        <button class="view-btn active" onclick="setView('hex')">Hex</button>
+        <button class="view-btn" onclick="setView('grid')">Grid</button>
+      </div>
+    </div>
+
+    <div class="honeycomb" id="honeycomb"></div>
+    <div class="compact-grid" id="compactGrid"></div>
+  </div>
+
+  <!-- Right: Detail Panel -->
+  <div class="detail" id="detailPanel">
+    <div class="detail-title">Reader Detail</div>
+    <div class="detail-empty" id="detailEmpty">Click a reader to view details</div>
+    <div id="detailContent" style="display:none"></div>
+  </div>
+</div>
+
+<div class="bot">
+  <div>Total: <b>50</b> &bull; Online: <b id="bOn">20</b> &bull; Reading: <b id="bRd">8</b> &bull; Error: <b id="bEr">3</b></div>
+  <span>API :18080 &bull; 2026-03-03 11:38:58</span>
+</div>
+
+<!-- Notes -->
+<div class="notes"><div class="nc">
+  <h2>Design #6 Key Concepts</h2>
+  <div class="ng2">
+    <div class="ni2">
+      <h4>Hexagonal Honeycomb</h4>
+      <p>50개 리더기를 벌집 구조 육각형으로 배치. 육각형은 사각형 대비 15% 더 높은 공간 효율, 인접 리더기와의 시각적 연결감 제공. 상태별 색상이 벌집 패턴과 결합하여 유기적이고 생동감 있는 대시보드 구성.</p>
+    </div>
+    <div class="ni2">
+      <h4>3-Column Layout</h4>
+      <p>좌측 통계 사이드바(상태 분포 + 필터) + 중앙 허니콤 그리드 + 우측 상세 패널. 정보의 계층이 명확: 전체 현황(좌) → 개별 위치 확인(중) → 상세 정보(우). 클릭 흐름이 자연스러움.</p>
+    </div>
+    <div class="ni2">
+      <h4>Interactive Detail Panel</h4>
+      <p>육각형 클릭 시 우측 패널에 확대 육각형 + 연결정보 + 인디케이터 상태 + 최근 활동 로그 표시. 호버 툴팁과 상세 패널의 이중 레벨 정보 접근.</p>
+    </div>
+    <div class="ni2">
+      <h4>Dual View Mode</h4>
+      <p>Hex(육각형 벌집) / Grid(컴팩트 직사각형) 전환. 육각형은 시각적 임팩트, 그리드는 밀도와 실용성. 상태별 필터 클릭으로 특정 상태만 하이라이트.</p>
+    </div>
+  </div>
+
+  <h3>6 Designs Comparison</h3>
+  <table class="cmp">
+    <tr><th></th><th>#1 Light Card</th><th>#2 Dark NOC</th><th>#3 Donut</th><th>#4 Swim Lane</th><th>#5 Radial</th><th>#6 Honeycomb</th></tr>
+    <tr><td>Metaphor</td><td>Dashboard</td><td>Monitoring center</td><td>Data viz</td><td>Kanban board</td><td>Radar</td><td>Beehive</td></tr>
+    <tr><td>Layout</td><td>Flat grid</td><td>Sidebar + grid</td><td>Donut + waffle</td><td>Horiz. lanes</td><td>Concentric rings</td><td>Hex tessellation</td></tr>
+    <tr><td>Unit Size</td><td>108px card</td><td>42px cell</td><td>34px dot</td><td>Inline pill</td><td>22px node</td><td>60px hexagon</td></tr>
+    <tr><td>Key Feature</td><td>Multi-view</td><td>Glow effects</td><td>Donut chart</td><td>Collapsible</td><td>Dual rings</td><td>Hex tessellation</td></tr>
+    <tr><td>Best For</td><td>General</td><td>24/7 rooms</td><td>Status check</td><td>Incident</td><td>Overview</td><td>Visual impact</td></tr>
+  </table>
+
+  <h3>Swing Implementation</h3>
+  <ul>
+    <li><strong>Hexagon rendering</strong>: Custom JPanel, paintComponent에서 Polygon(6 vertices) 그려 clip path 없이도 구현 가능. GeneralPath로 정육각형 좌표 계산.</li>
+    <li><strong>Honeycomb layout</strong>: Custom LayoutManager, 짝수/홀수 행 오프셋 계산. hexWidth=60, rowHeight=52 (높이의 75%), 홀수행은 halfWidth만큼 오프셋.</li>
+    <li><strong>Glow effect</strong>: Reading 상태 헥사곤에 AlphaComposite.SrcOver로 반투명 확대 헥사곤 그리기 + Timer로 opacity 애니메이션.</li>
+    <li><strong>3-column layout</strong>: BorderLayout(WEST=stats, CENTER=honeycomb, EAST=detail). 스크롤은 JScrollPane.</li>
+    <li><strong>Click interaction</strong>: MouseListener on hex → detailPanel 업데이트. paintComponent에서 Polygon.contains(mousePoint)로 클릭 감지.</li>
+    <li><strong>Status filter</strong>: stat-card 클릭 시 필터 상태 저장, repaint에서 비대상 hex에 AlphaComposite(0.15f) 적용.</li>
+  </ul>
+</div></div>
+
+<script>
+const STATUS={
+  reading:{label:'Reading',color:'#6C8FFF',bg:'rgba(108,143,255,.12)',order:0},
+  connected:{label:'Connected',color:'#34D399',bg:'rgba(52,211,153,.12)',order:1},
+  connecting:{label:'Connecting',color:'#FBBF24',bg:'rgba(251,191,36,.12)',order:2},
+  error:{label:'Error',color:'#F87171',bg:'rgba(248,113,113,.12)',order:3},
+  disconnected:{label:'Disconnected',color:'#4B5268',bg:'rgba(75,82,104,.12)',order:4},
+};
+
+function makeReaders(){
+  const d=[];
+  for(let i=0;i<8;i++)d.push('reading');
+  for(let i=0;i<12;i++)d.push('connected');
+  for(let i=0;i<27;i++)d.push('disconnected');
+  for(let i=0;i<3;i++)d.push('error');
+  for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}
+  return d.map((s,i)=>({
+    num:i+1,
+    name:`Reader-${String(i+1).padStart(2,'0')}`,
+    ip:i<2?`192.168.0.${141+i}`:`10.0.${Math.floor(i/20)}.${100+(i%20)}`,
+    port:20058+i,status:s,
+    beep:Math.random()>.3,light:Math.random()>.5,buzzer:Math.random()>.6,
+    rssi:s==='reading'?-Math.floor(Math.random()*30+30):null,
+  }));
+}
+
+const readers=makeReaders();
+let currentView='hex';
+let activeFilter=null;
+let selectedReader=null;
+
+function counts(){const c={};readers.forEach(r=>c[r.status]=(c[r.status]||0)+1);return c;}
+
+function filterStatus(s){
+  if(activeFilter===s){activeFilter=null;}
+  else{activeFilter=s;}
+  document.querySelectorAll('.stat-card').forEach(el=>{
+    el.classList.toggle('active',el.dataset.filter===activeFilter);
+  });
+  render();
+}
+
+function setView(v){
+  currentView=v;
+  document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.view-btn').forEach(b=>{if(b.textContent.toLowerCase()===v)b.classList.add('active');});
+  render();
+}
+
+function makeTooltip(r){
+  const s=STATUS[r.status];
+  const tIB=`<div class="htip-ind"><div class="htip-id" style="background:${r.beep?'var(--beep)':'#4B5268'}"></div>Beep ${r.beep?'ON':'OFF'}</div>`;
+  const tIL=`<div class="htip-ind"><div class="htip-id" style="background:${r.light?'var(--light)':'#4B5268'}"></div>Light ${r.light?'ON':'OFF'}</div>`;
+  const tIZ=`<div class="htip-ind"><div class="htip-id" style="background:${r.buzzer?'var(--buzzer)':'#4B5268'}"></div>Buzzer ${r.buzzer?'ON':'OFF'}</div>`;
+  return `<div class="htip">
+    <div class="htip-name">${r.name} <span class="htip-badge" style="background:${s.bg};color:${s.color}">${s.label}</span></div>
+    <div class="htip-row"><span>IP</span><b>${r.ip}:${r.port}</b></div>
+    ${r.rssi?`<div class="htip-row"><span>RSSI</span><b>${r.rssi} dBm</b></div>`:''}
+    <div class="htip-inds">${tIB}${tIL}${tIZ}</div>
+  </div>`;
+}
+
+function selectReader(idx){
+  selectedReader=readers[idx];
+  const r=selectedReader;
+  const s=STATUS[r.status];
+
+  document.getElementById('detailEmpty').style.display='none';
+  const dc=document.getElementById('detailContent');
+  dc.style.display='block';
+
+  const activities=['Connected successfully','Inventory started','Tag detected: EPC=0420...','RSSI updated: -42 dBm','Config changed: beep ON'];
+  const times=['11:38:52','11:37:10','11:36:45','11:35:22','11:30:01'];
+
+  dc.innerHTML=`
+    <div class="rd-head">
+      <div class="rd-hex-wrap">
+        <div class="rd-hex" style="background:${s.color}">
+          <div class="rd-hex-inner" style="background:${s.color};filter:brightness(0.85)">${String(r.num).padStart(2,'0')}</div>
+        </div>
+      </div>
+      <div class="rd-name">${r.name}</div>
+      <div class="rd-status" style="background:${s.bg};color:${s.color}">${s.label}</div>
+    </div>
+
+    <div class="rd-info">
+      <div class="rd-row"><span class="rd-lbl">IP Address</span><span class="rd-val">${r.ip}</span></div>
+      <div class="rd-row"><span class="rd-lbl">Port</span><span class="rd-val">${r.port}</span></div>
+      ${r.rssi?`<div class="rd-row"><span class="rd-lbl">RSSI</span><span class="rd-val">${r.rssi} dBm</span></div>`:''}
+      <div class="rd-row"><span class="rd-lbl">Status</span><span class="rd-val" style="color:${s.color}">${s.label}</span></div>
+    </div>
+
+    <div class="rd-inds">
+      <div class="rd-ind">
+        <div class="rd-ind-dot" style="background:${r.beep?'var(--beep)':'var(--disconnected)'}"></div>
+        <div class="rd-ind-lbl">Beep</div>
+        <div class="rd-ind-val" style="color:${r.beep?'var(--beep)':'var(--text3)'}">${r.beep?'ON':'OFF'}</div>
+      </div>
+      <div class="rd-ind">
+        <div class="rd-ind-dot" style="background:${r.light?'var(--light)':'var(--disconnected)'}"></div>
+        <div class="rd-ind-lbl">Light</div>
+        <div class="rd-ind-val" style="color:${r.light?'var(--light)':'var(--text3)'}">${r.light?'ON':'OFF'}</div>
+      </div>
+      <div class="rd-ind">
+        <div class="rd-ind-dot" style="background:${r.buzzer?'var(--buzzer)':'var(--disconnected)'}"></div>
+        <div class="rd-ind-lbl">Buzzer</div>
+        <div class="rd-ind-val" style="color:${r.buzzer?'var(--buzzer)':'var(--text3)'}">${r.buzzer?'ON':'OFF'}</div>
+      </div>
+    </div>
+
+    <div class="detail-title" style="margin-top:8px">Recent Activity</div>
+    <div class="act-list">
+      ${activities.map((a,i)=>`<div class="act-item"><div class="act-dot" style="background:${s.color}"></div><div class="act-text">${a}</div><div class="act-time">${times[i]}</div></div>`).join('')}
+    </div>
+  `;
+}
+
+function render(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const filtered=readers.filter(r=>{
+    if(q&&!r.name.toLowerCase().includes(q)&&!r.ip.includes(q))return false;
+    return true;
+  });
+
+  const title=document.getElementById('centerTitle');
+  if(activeFilter){
+    const s=STATUS[activeFilter];
+    const cnt=filtered.filter(r=>r.status===activeFilter).length;
+    title.textContent=`${s.label} (${cnt})`;
+  }else{
+    title.textContent=`All Readers (${filtered.length})`;
+  }
+
+  // Honeycomb view
+  const hc=document.getElementById('honeycomb');
+  const cg=document.getElementById('compactGrid');
+
+  if(currentView==='hex'){
+    hc.classList.remove('hidden');
+    cg.classList.remove('visible');
+    renderHoneycomb(filtered);
+  }else{
+    hc.classList.add('hidden');
+    cg.classList.add('visible');
+    renderCompactGrid(filtered);
+  }
+
+  // Update stats
+  const c=counts();
+  document.getElementById('bOn').textContent=(c.reading||0)+(c.connected||0);
+  document.getElementById('bRd').textContent=c.reading||0;
+  document.getElementById('bEr').textContent=c.error||0;
+}
+
+function renderHoneycomb(filtered){
+  const hc=document.getElementById('honeycomb');
+  hc.innerHTML='';
+
+  const cols=9;
+  const rows=Math.ceil(filtered.length/cols);
+
+  for(let row=0;row<rows;row++){
+    const rowDiv=document.createElement('div');
+    rowDiv.className='hex-row'+(row%2===1?' offset':'');
+
+    const start=row*cols;
+    const end=Math.min(start+cols,filtered.length);
+    const rowReaders=filtered.slice(start,end);
+
+    // Odd rows have one fewer to create honeycomb pattern
+    const maxCols=row%2===1?cols-1:cols;
+
+    for(let i=0;i<Math.min(rowReaders.length,maxCols);i++){
+      const r=rowReaders[i];
+      const dimmed=activeFilter&&r.status!==activeFilter;
+
+      const iB=r.beep?`<div class="hex-ind" style="background:var(--beep)"></div>`:`<div class="hex-ind off"></div>`;
+      const iL=r.light?`<div class="hex-ind" style="background:var(--light)"></div>`:`<div class="hex-ind off"></div>`;
+      const iZ=r.buzzer?`<div class="hex-ind" style="background:var(--buzzer)"></div>`:`<div class="hex-ind off"></div>`;
+
+      const hex=document.createElement('div');
+      hex.className='hex';
+      hex.dataset.s=r.status;
+      hex.style.opacity=dimmed?'0.15':'1';
+      hex.onclick=()=>selectReader(readers.indexOf(r));
+      hex.innerHTML=`
+        <div class="hex-inner">
+          <div class="hex-num">${String(r.num).padStart(2,'0')}</div>
+          <div class="hex-name">${r.name.replace('Reader-','R')}</div>
+          <div class="hex-inds">${iB}${iL}${iZ}</div>
+        </div>
+        ${makeTooltip(r)}
+      `;
+      rowDiv.appendChild(hex);
+    }
+    hc.appendChild(rowDiv);
+  }
+}
+
+function renderCompactGrid(filtered){
+  const cg=document.getElementById('compactGrid');
+  cg.innerHTML='';
+
+  filtered.forEach(r=>{
+    const dimmed=activeFilter&&r.status!==activeFilter;
+
+    const iB=r.beep?`<div class="cg-ind" style="background:var(--beep)"></div>`:`<div class="cg-ind off"></div>`;
+    const iL=r.light?`<div class="cg-ind" style="background:var(--light)"></div>`:`<div class="cg-ind off"></div>`;
+    const iZ=r.buzzer?`<div class="cg-ind" style="background:var(--buzzer)"></div>`:`<div class="cg-ind off"></div>`;
+
+    const cell=document.createElement('div');
+    cell.className='cg-cell';
+    cell.dataset.s=r.status;
+    cell.style.opacity=dimmed?'0.15':'1';
+    cell.onclick=()=>selectReader(readers.indexOf(r));
+    cell.innerHTML=`
+      <div class="cg-top"><div class="cg-dot"></div><span class="cg-name">R-${String(r.num).padStart(2,'0')}</span></div>
+      <div class="cg-inds">${iB}${iL}${iZ}</div>
+      ${makeTooltip(r)}
+    `;
+    cg.appendChild(cell);
+  });
+}
+
+render();
+</script>
+</body>
+</html>

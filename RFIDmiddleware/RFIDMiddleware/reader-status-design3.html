@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFID Reader Status - Minimal Visual Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #FAFBFC;
+    --surface: #FFFFFF;
+    --border: #E5E7EB;
+    --text: #111827;
+    --text2: #6B7280;
+    --text3: #9CA3AF;
+    --disconnected: #D1D5DB;
+    --connected: #34D399;
+    --reading: #60A5FA;
+    --error: #F87171;
+    --connecting: #FBBF24;
+    --beep: #34D399;
+    --light: #F59E0B;
+    --buzzer: #3B82F6;
+  }
+  body {
+    font-family: -apple-system, 'Segoe UI', 'Malgun Gothic', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* ===== Label ===== */
+  .label {
+    background: #111827;
+    color: #9CA3AF;
+    text-align: center;
+    padding: 12px;
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+  .label strong { color: #E5E7EB; font-size: 14px; }
+
+  /* ===== Header ===== */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .h-left { display: flex; align-items: center; gap: 12px; }
+  .h-title { font-size: 18px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
+  .h-live {
+    font-size: 10px; font-weight: 700; color: var(--reading);
+    background: rgba(96,165,250,0.1);
+    padding: 3px 8px 3px 6px;
+    border-radius: 10px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .h-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--reading); animation: blink 1.5s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .h-actions { display: flex; gap: 6px; }
+  .h-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text2);
+    transition: all .15s;
+  }
+  .h-btn:hover { background: #F3F4F6; color: var(--text); }
+  .h-btn.accent {
+    background: var(--reading);
+    color: white;
+    border-color: var(--reading);
+  }
+  .h-btn.accent:hover { background: #3B82F6; }
+
+  /* ===== Dashboard Row ===== */
+  .dash {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 20px;
+    padding: 20px 32px;
+    align-items: start;
+  }
+
+  /* ===== Left: Donut + Legend ===== */
+  .overview-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    position: sticky;
+    top: 20px;
+  }
+  .ov-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+
+  /* Donut chart (SVG) */
+  .donut-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .donut-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .donut-total { font-size: 32px; font-weight: 800; line-height: 1; }
+  .donut-label { font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+  /* Legend */
+  .legend { display: flex; flex-direction: column; gap: 8px; }
+  .leg-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background .15s;
+    position: relative;
+  }
+  .leg-row:hover { background: var(--bg); }
+  .leg-row.active { background: var(--bg); box-shadow: inset 0 0 0 1.5px var(--border); }
+  .leg-dot { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; }
+  .leg-name { font-size: 13px; font-weight: 600; flex: 1; }
+  .leg-count { font-size: 18px; font-weight: 800; }
+  .leg-bar {
+    position: absolute;
+    bottom: 0; left: 12px; right: 12px;
+    height: 2px;
+    background: var(--bg);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .leg-bar-fill { height: 100%; border-radius: 1px; transition: width .5s; }
+
+  /* ===== Right: Reader Grid ===== */
+  .grid-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+  }
+  .grid-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .grid-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .grid-search {
+    position: relative;
+  }
+  .grid-search input {
+    width: 160px;
+    padding: 6px 10px 6px 28px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    background: var(--bg);
+    transition: all .2s;
+  }
+  .grid-search input:focus { border-color: var(--reading); width: 200px; background: white; }
+  .grid-search::before {
+    content: "\1F50D";
+    position: absolute;
+    left: 8px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+  }
+
+  /* ===== Dot Grid (Waffle) ===== */
+  .waffle {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 4px;
+  }
+
+  .dot {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all .2s;
+    position: relative;
+    min-height: 34px;
+    max-height: 48px;
+  }
+  .dot:hover {
+    transform: scale(1.12);
+    z-index: 10;
+  }
+
+  .dot[data-s="disconnected"] { background: #F3F4F6; }
+  .dot[data-s="disconnected"]:hover { background: #E5E7EB; }
+  .dot[data-s="disconnected"] .d-num { color: #9CA3AF; }
+  .dot[data-s="disconnected"] .d-ring { border-color: var(--disconnected); }
+  .dot[data-s="disconnected"] .d-inner { background: var(--disconnected); }
+
+  .dot[data-s="connected"] { background: rgba(52,211,153,0.08); }
+  .dot[data-s="connected"]:hover { background: rgba(52,211,153,0.15); }
+  .dot[data-s="connected"] .d-num { color: #059669; }
+  .dot[data-s="connected"] .d-ring { border-color: var(--connected); }
+  .dot[data-s="connected"] .d-inner { background: var(--connected); }
+
+  .dot[data-s="reading"] { background: rgba(96,165,250,0.08); }
+  .dot[data-s="reading"]:hover { background: rgba(96,165,250,0.18); box-shadow: 0 0 0 2px rgba(96,165,250,0.3); }
+  .dot[data-s="reading"] .d-num { color: #2563EB; }
+  .dot[data-s="reading"] .d-ring { border-color: var(--reading); animation: ring-spin 3s linear infinite; }
+  .dot[data-s="reading"] .d-inner { background: var(--reading); animation: blink 1.5s infinite; }
+
+  .dot[data-s="error"] { background: rgba(248,113,113,0.08); }
+  .dot[data-s="error"]:hover { background: rgba(248,113,113,0.18); box-shadow: 0 0 0 2px rgba(248,113,113,0.3); }
+  .dot[data-s="error"] .d-num { color: #DC2626; }
+  .dot[data-s="error"] .d-ring { border-color: var(--error); border-style: dashed; animation: ring-spin 2s linear infinite reverse; }
+  .dot[data-s="error"] .d-inner { background: var(--error); animation: blink .8s infinite; }
+
+  .dot[data-s="connecting"] { background: rgba(251,191,36,0.08); }
+  .dot[data-s="connecting"] .d-num { color: #D97706; }
+  .dot[data-s="connecting"] .d-ring { border-color: var(--connecting); border-top-color: transparent; animation: ring-spin 1s linear infinite; }
+  .dot[data-s="connecting"] .d-inner { background: var(--connecting); }
+
+  @keyframes ring-spin { to { transform: rotate(360deg); } }
+
+  /* Ring indicator */
+  .d-ring-wrap {
+    position: relative;
+    width: 16px; height: 16px;
+    margin-bottom: 2px;
+  }
+  .d-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1.5px solid;
+  }
+  .d-inner {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 7px; height: 7px;
+    border-radius: 50%;
+  }
+  .d-num {
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  /* Indicator dots */
+  .d-inds {
+    display: flex;
+    gap: 1.5px;
+    margin-top: 1px;
+  }
+  .d-ind {
+    width: 3px; height: 3px;
+    border-radius: 50%;
+  }
+  .d-ind.off { background: #D1D5DB; }
+
+  /* Tooltip */
+  .dot .tip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%; transform: translateX(-50%);
+    background: #111827;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    line-height: 1.6;
+  }
+  .dot .tip::after {
+    content: '';
+    position: absolute;
+    top: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #111827;
+  }
+  .dot:hover .tip { display: block; }
+  .tip-name { font-weight: 700; font-size: 12px; }
+  .tip-status { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-left: 4px; }
+  .tip-row { color: #9CA3AF; }
+  .tip-row b { color: #E5E7EB; }
+  .tip-inds { display: flex; gap: 8px; margin-top: 2px; }
+  .tip-ind { display: flex; align-items: center; gap: 3px; font-size: 10px; }
+  .tip-ind-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  /* ===== Compact list (togglable) ===== */
+  .compact-list {
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .compact-list.show { display: flex; }
+  .cl-row {
+    display: grid;
+    grid-template-columns: 28px 90px 130px 24px 60px auto;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background .1s;
+  }
+  .cl-row:hover { background: var(--bg); }
+  .cl-num { font-size: 10px; color: var(--text3); font-weight: 700; text-align: center; }
+  .cl-name { font-weight: 700; }
+  .cl-ip { font-family: 'Consolas',monospace; font-size: 11px; color: var(--text3); }
+  .cl-status-dot { width: 8px; height: 8px; border-radius: 50%; margin: 0 auto; }
+  .cl-rssi { font-size: 11px; color: var(--text2); text-align: center; }
+  .cl-inds { display: flex; gap: 3px; }
+  .cl-ind { width: 6px; height: 6px; border-radius: 50%; }
+  .cl-ind.off { background: #E5E7EB; }
+
+  /* View toggle */
+  .vtog { display: flex; gap: 2px; background: var(--bg); border-radius: 8px; padding: 2px; }
+  .vtog button {
+    padding: 5px 12px; border: none; background: none;
+    border-radius: 6px; cursor: pointer; font-size: 11px;
+    font-family: inherit; color: var(--text3); font-weight: 600; transition: all .15s;
+  }
+  .vtog button.active { background: white; color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+
+  /* ===== Bottom ===== */
+  .bottom {
+    padding: 12px 32px;
+    font-size: 10px;
+    color: var(--text3);
+    display: flex;
+    justify-content: space-between;
+  }
+  .bottom span { font-family: 'Consolas',monospace; }
+
+  /* ===== Notes ===== */
+  .notes {
+    max-width: 900px;
+    margin: 0 auto 60px;
+    padding: 0 32px;
+  }
+  .notes-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+  }
+  .notes-card h2 {
+    font-size: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ng { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .ni {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .ni h4 { font-size: 12px; margin-bottom: 6px; }
+  .ni p { font-size: 11px; color: var(--text2); line-height: 1.7; margin: 0; }
+  .notes-card h3 { font-size: 13px; color: var(--text2); margin: 16px 0 8px; }
+  .notes-card ul { font-size: 12px; color: var(--text2); line-height: 1.8; padding-left: 20px; }
+
+  .compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 8px;
+  }
+  .compare th, .compare td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .compare th { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; font-weight: 700; }
+  .compare td { color: var(--text2); }
+  .compare tr:last-child td { border: none; }
+</style>
+</head>
+<body>
+
+<div class="label">
+  <strong>Design #3 &mdash; Minimal Visual Dashboard</strong><br>
+  Donut Overview + Waffle Dot Grid + Compact List
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="h-left">
+    <div class="h-title">RFID Middleware</div>
+    <div class="h-live"><span class="h-dot"></span> LIVE</div>
+  </div>
+  <div class="h-actions">
+    <button class="h-btn accent">&#9654; Start All</button>
+    <button class="h-btn">&#9632; Stop</button>
+    <button class="h-btn">&#128268; Connect</button>
+    <button class="h-btn">&#128263; Disconnect</button>
+    <button class="h-btn">&#9881;</button>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div class="dash">
+
+  <!-- Left: Overview -->
+  <div class="overview-card">
+    <div class="ov-title">Overview</div>
+
+    <div class="donut-wrap">
+      <svg width="150" height="150" viewBox="0 0 180 180" id="donutSvg"></svg>
+      <div class="donut-center">
+        <div class="donut-total" id="donutTotal">50</div>
+        <div class="donut-label">READERS</div>
+      </div>
+    </div>
+
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <!-- Right: Grid -->
+  <div class="grid-card">
+    <div class="grid-top">
+      <div class="grid-title" id="gridTitle">All Readers</div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <div class="grid-search">
+          <input type="text" placeholder="Search..." id="searchInput" oninput="render()">
+        </div>
+        <div class="vtog">
+          <button class="active" onclick="setView('waffle',this)" id="btn-waffle">Dot Grid</button>
+          <button onclick="setView('list',this)" id="btn-list">List</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="waffle" id="waffle"></div>
+    <div class="compact-list" id="clist"></div>
+  </div>
+</div>
+
+<div class="bottom">
+  <div>Total: 50 &nbsp;&bull;&nbsp; Online: <strong id="bOnline">20</strong> &nbsp;&bull;&nbsp; Reading: <strong id="bReading">8</strong> &nbsp;&bull;&nbsp; Error: <strong id="bError">3</strong></div>
+  <span>API :18080 &nbsp;&bull;&nbsp; 2026-03-03 11:38:58</span>
+</div>
+
+<!-- Notes -->
+<div class="notes">
+  <div class="notes-card">
+    <h2>Design #3 Key Concepts</h2>
+    <div class="ng">
+      <div class="ni">
+        <h4>Donut Chart Overview</h4>
+        <p>Proportion-based status visualization. 50 readers' distribution is understood in under 1 second. Center shows total count. Legend doubles as filter buttons.</p>
+      </div>
+      <div class="ni">
+        <h4>Waffle Dot Grid (10x5)</h4>
+        <p>Each cell = 1 reader. Inspired by GitHub contribution graph. Color-coded background + animated ring indicator. 50 readers fit perfectly in a 10-column grid without scrolling.</p>
+      </div>
+      <div class="ni">
+        <h4>Ring Status Indicator</h4>
+        <p><strong>Reading</strong>: Spinning ring + pulsing center dot.<br>
+        <strong>Error</strong>: Dashed ring spinning reverse + fast blink.<br>
+        <strong>Connected</strong>: Static solid ring.<br>
+        <strong>Disconnected</strong>: Gray, subdued.</p>
+      </div>
+      <div class="ni">
+        <h4>Minimal Information Hierarchy</h4>
+        <p>Level 1: Color (instant status recognition).<br>
+        Level 2: Ring animation (activity state).<br>
+        Level 3: Number label (reader ID).<br>
+        Level 4: Tooltip on hover (full details).</p>
+      </div>
+    </div>
+
+    <h3>3 Designs Comparison</h3>
+    <table class="compare">
+      <tr>
+        <th></th>
+        <th>Design #1</th>
+        <th>Design #2</th>
+        <th>Design #3</th>
+      </tr>
+      <tr>
+        <td><strong>Theme</strong></td>
+        <td>Light, card-based</td>
+        <td>Dark NOC</td>
+        <td>Light, data-viz</td>
+      </tr>
+      <tr>
+        <td><strong>Concept</strong></td>
+        <td>Dashboard + Grid</td>
+        <td>Monitoring Center</td>
+        <td>Analytics Overview</td>
+      </tr>
+      <tr>
+        <td><strong>Overview</strong></td>
+        <td>Summary chips</td>
+        <td>Sidebar groups</td>
+        <td>Donut chart</td>
+      </tr>
+      <tr>
+        <td><strong>Reader Display</strong></td>
+        <td>Info cards (108px)</td>
+        <td>Cards + Matrix (42px)</td>
+        <td>Dot grid cells</td>
+      </tr>
+      <tr>
+        <td><strong>Info Density</strong></td>
+        <td>Medium (name+badge+IP+indicators)</td>
+        <td>High (matrix=number only)</td>
+        <td>Progressive (color &rarr; ring &rarr; tooltip)</td>
+      </tr>
+      <tr>
+        <td><strong>Animation</strong></td>
+        <td>Pulse on status dot</td>
+        <td>Glow + ring pulse</td>
+        <td>Spinning ring + blink patterns</td>
+      </tr>
+      <tr>
+        <td><strong>Best For</strong></td>
+        <td>General operation</td>
+        <td>24/7 control rooms</td>
+        <td>Quick status check</td>
+      </tr>
+      <tr>
+        <td><strong>Unique</strong></td>
+        <td>List/table view</td>
+        <td>Grouped by status</td>
+        <td>Donut + waffle grid</td>
+      </tr>
+    </table>
+
+    <h3>Swing Implementation</h3>
+    <ul>
+      <li><strong>Donut chart</strong>: Graphics2D Arc2D.Double segments, anti-aliased. Center text with drawString.</li>
+      <li><strong>Waffle grid</strong>: GridLayout(5, 10) with custom-painted JPanel cells.</li>
+      <li><strong>Ring animation</strong>: javax.swing.Timer rotating arc start angle per frame.</li>
+      <li><strong>Dashed ring (error)</strong>: BasicStroke with dash array + rotating transform.</li>
+      <li><strong>Tooltip</strong>: Override JToolTip or use JPopupMenu with HTML content.</li>
+      <li><strong>Progressive disclosure</strong>: Color visible always, details on hover - reduces cognitive load.</li>
+      <li><strong>Layout</strong>: BorderLayout(WEST=donut panel, CENTER=grid) inside the existing ReaderStatusPanel area.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+const S = {
+  reading:      { label: 'Reading',      color: '#60A5FA', order: 0 },
+  connected:    { label: 'Connected',    color: '#34D399', order: 1 },
+  connecting:   { label: 'Connecting',   color: '#FBBF24', order: 2 },
+  error:        { label: 'Error',        color: '#F87171', order: 3 },
+  disconnected: { label: 'Disconnected', color: '#D1D5DB', order: 4 },
+};
+
+function makeReaders() {
+  const d = [];
+  for (let i=0;i<8;i++) d.push('reading');
+  for (let i=0;i<12;i++) d.push('connected');
+  for (let i=0;i<27;i++) d.push('disconnected');
+  for (let i=0;i<3;i++) d.push('error');
+  for (let i=d.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]]; }
+  return d.map((s,i) => ({
+    num: i+1,
+    name: `Reader-${String(i+1).padStart(2,'0')}`,
+    ip: i<2 ? `192.168.0.${141+i}` : `10.0.${Math.floor(i/20)}.${100+(i%20)}`,
+    port: 20058+i,
+    status: s,
+    beep: Math.random()>.3,
+    light: Math.random()>.5,
+    buzzer: Math.random()>.6,
+    rssi: s==='reading' ? -Math.floor(Math.random()*30+30) : null,
+  }));
+}
+
+const readers = makeReaders();
+let view = 'waffle';
+let filter = null;
+
+function counts() {
+  const c = {};
+  readers.forEach(r => c[r.status] = (c[r.status]||0)+1);
+  return c;
+}
+
+function drawDonut() {
+  const c = counts();
+  const order = ['reading','connected','connecting','error','disconnected'];
+  const svg = document.getElementById('donutSvg');
+  svg.innerHTML = '';
+  const cx=90, cy=90, r=72, sw=18;
+  const total = readers.length;
+  let angle = -90;
+
+  order.forEach(s => {
+    if (!c[s]) return;
+    const pct = c[s] / total;
+    const sweep = pct * 360;
+    const start = angle * Math.PI / 180;
+    const end = (angle + sweep) * Math.PI / 180;
+    const large = sweep > 180 ? 1 : 0;
+    const ir = r - sw;
+
+    const x1 = cx + r * Math.cos(start);
+    const y1 = cy + r * Math.sin(start);
+    const x2 = cx + r * Math.cos(end);
+    const y2 = cy + r * Math.sin(end);
+    const x3 = cx + ir * Math.cos(end);
+    const y3 = cy + ir * Math.sin(end);
+    const x4 = cx + ir * Math.cos(start);
+    const y4 = cy + ir * Math.sin(start);
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',
+      `M${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2} L${x3},${y3} A${ir},${ir} 0 ${large} 0 ${x4},${y4} Z`
+    );
+    path.setAttribute('fill', S[s].color);
+    path.setAttribute('opacity', filter && filter !== s ? '0.2' : '1');
+    path.style.cursor = 'pointer';
+    path.style.transition = 'opacity .3s';
+    path.onclick = () => { filter = filter === s ? null : s; render(); };
+    svg.appendChild(path);
+
+    // Gap line
+    const gap = document.createElementNS('http://www.w3.org/2000/svg','line');
+    gap.setAttribute('x1', cx + (r+1)*Math.cos(start));
+    gap.setAttribute('y1', cy + (r+1)*Math.sin(start));
+    gap.setAttribute('x2', cx + (ir-1)*Math.cos(start));
+    gap.setAttribute('y2', cy + (ir-1)*Math.sin(start));
+    gap.setAttribute('stroke','#FAFBFC');
+    gap.setAttribute('stroke-width','2');
+    svg.appendChild(gap);
+
+    angle += sweep;
+  });
+}
+
+function drawLegend() {
+  const c = counts();
+  const order = ['reading','connected','connecting','error','disconnected'];
+  const el = document.getElementById('legend');
+  el.innerHTML = '';
+  order.forEach(s => {
+    if (!c[s]) return;
+    const pct = (c[s]/readers.length*100).toFixed(0);
+    const active = filter === s ? ' active' : '';
+    const row = document.createElement('div');
+    row.className = 'leg-row' + active;
+    row.onclick = () => { filter = filter === s ? null : s; render(); };
+    row.innerHTML = `
+      <div class="leg-dot" style="background:${S[s].color}"></div>
+      <div class="leg-name">${S[s].label}</div>
+      <div class="leg-count" style="color:${S[s].color}">${c[s]}</div>
+      <div class="leg-bar"><div class="leg-bar-fill" style="width:${pct}%;background:${S[s].color}"></div></div>
+    `;
+    el.appendChild(row);
+  });
+}
+
+function getFiltered() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  return readers.filter(r => {
+    if (filter && r.status !== filter) return false;
+    if (q && !r.name.toLowerCase().includes(q) && !r.ip.includes(q)) return false;
+    return true;
+  });
+}
+
+function renderWaffle() {
+  const el = document.getElementById('waffle');
+  el.innerHTML = '';
+  const list = getFiltered();
+  document.getElementById('gridTitle').textContent =
+    (filter ? S[filter].label : 'All Readers') + ` (${list.length})`;
+
+  list.forEach(r => {
+    const indB = r.beep ? `<div class="d-ind" style="background:var(--beep)"></div>` : `<div class="d-ind off"></div>`;
+    const indL = r.light ? `<div class="d-ind" style="background:var(--light)"></div>` : `<div class="d-ind off"></div>`;
+    const indZ = r.buzzer ? `<div class="d-ind" style="background:var(--buzzer)"></div>` : `<div class="d-ind off"></div>`;
+
+    const tipStatusBg = { reading:'rgba(96,165,250,.2)', connected:'rgba(52,211,153,.2)',
+      error:'rgba(248,113,113,.2)', disconnected:'rgba(209,213,219,.2)', connecting:'rgba(251,191,36,.2)' }[r.status];
+    const tipStatusColor = S[r.status].color;
+
+    const tipIB = `<div class="tip-ind"><div class="tip-ind-dot" style="background:${r.beep?'var(--beep)':'#6B7280'}"></div>${r.beep?'ON':'OFF'}</div>`;
+    const tipIL = `<div class="tip-ind"><div class="tip-ind-dot" style="background:${r.light?'var(--light)':'#6B7280'}"></div>${r.light?'ON':'OFF'}</div>`;
+    const tipIZ = `<div class="tip-ind"><div class="tip-ind-dot" style="background:${r.buzzer?'var(--buzzer)':'#6B7280'}"></div>${r.buzzer?'ON':'OFF'}</div>`;
+
+    const dot = document.createElement('div');
+    dot.className = 'dot';
+    dot.dataset.s = r.status;
+    dot.innerHTML = `
+      <div class="d-ring-wrap">
+        <div class="d-ring"></div>
+        <div class="d-inner"></div>
+      </div>
+      <div class="d-num">${String(r.num).padStart(2,'0')}</div>
+      <div class="d-inds">${indB}${indL}${indZ}</div>
+      <div class="tip">
+        <div><span class="tip-name">${r.name}</span>
+          <span class="tip-status" style="background:${tipStatusBg};color:${tipStatusColor}">${S[r.status].label}</span></div>
+        <div class="tip-row">${r.ip}:${r.port}${r.rssi ? ` &nbsp;&bull;&nbsp; <b>RSSI ${r.rssi} dBm</b>` : ''}</div>
+        <div class="tip-inds">
+          <span style="color:#6B7280;margin-right:2px">Beep</span>${tipIB}
+          <span style="color:#6B7280;margin:0 2px">Light</span>${tipIL}
+          <span style="color:#6B7280;margin:0 2px">Buzzer</span>${tipIZ}
+        </div>
+      </div>
+    `;
+    el.appendChild(dot);
+  });
+}
+
+function renderList() {
+  const el = document.getElementById('clist');
+  el.innerHTML = '';
+  const list = getFiltered();
+
+  list.forEach(r => {
+    const indB = r.beep ? `<div class="cl-ind" style="background:var(--beep)"></div>` : `<div class="cl-ind off"></div>`;
+    const indL = r.light ? `<div class="cl-ind" style="background:var(--light)"></div>` : `<div class="cl-ind off"></div>`;
+    const indZ = r.buzzer ? `<div class="cl-ind" style="background:var(--buzzer)"></div>` : `<div class="cl-ind off"></div>`;
+
+    const row = document.createElement('div');
+    row.className = 'cl-row';
+    row.innerHTML = `
+      <div class="cl-num">${r.num}</div>
+      <div class="cl-name" style="color:${S[r.status].color}">${r.name}</div>
+      <div class="cl-ip">${r.ip}:${r.port}</div>
+      <div><div class="cl-status-dot" style="background:${S[r.status].color}"></div></div>
+      <div class="cl-rssi">${r.rssi ? r.rssi+' dBm' : '--'}</div>
+      <div class="cl-inds">${indB}${indL}${indZ}</div>
+    `;
+    el.appendChild(row);
+  });
+}
+
+function setView(v, btn) {
+  view = v;
+  document.querySelectorAll('.vtog button').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  document.getElementById('waffle').style.display = v==='waffle' ? 'grid' : 'none';
+  document.getElementById('clist').classList.toggle('show', v==='list');
+  render();
+}
+
+function render() {
+  drawDonut();
+  drawLegend();
+  if (view === 'waffle') renderWaffle();
+  else renderList();
+
+  const c = counts();
+  document.getElementById('bOnline').textContent = (c.reading||0)+(c.connected||0);
+  document.getElementById('bReading').textContent = c.reading||0;
+  document.getElementById('bError').textContent = c.error||0;
+}
+
+render();
+</script>
+</body>
+</html>

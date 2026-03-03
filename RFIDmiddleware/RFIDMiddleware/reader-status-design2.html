@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFID Reader Status - Dark NOC Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-deep: #0B0E14;
+    --bg-panel: #111827;
+    --bg-card: #1A2235;
+    --bg-card-hover: #1F2A40;
+    --border: #2A3550;
+    --border-light: #334165;
+    --text-primary: #E8ECF1;
+    --text-secondary: #8892A4;
+    --text-muted: #556177;
+
+    --status-disconnected: #6B7280;
+    --status-connecting: #F59E0B;
+    --status-connected: #10B981;
+    --status-reading: #3B82F6;
+    --status-error: #EF4444;
+
+    --glow-reading: rgba(59, 130, 246, 0.4);
+    --glow-connected: rgba(16, 185, 129, 0.3);
+    --glow-error: rgba(239, 68, 68, 0.4);
+
+    --beep: #34D399;
+    --light: #FBBF24;
+    --buzzer: #60A5FA;
+
+    --accent: #818CF8;
+  }
+
+  body {
+    font-family: 'Segoe UI', 'Malgun Gothic', -apple-system, sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* ===== DESIGN LABEL ===== */
+  .design-label {
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+    color: var(--accent);
+    text-align: center;
+    padding: 14px 20px;
+    font-size: 13px;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--border);
+  }
+  .design-label strong { font-size: 15px; color: #A5B4FC; }
+
+  /* ===== LAYOUT ===== */
+  .app {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    grid-template-rows: auto 1fr;
+    min-height: 100vh;
+  }
+
+  /* ===== TOP BAR ===== */
+  .topbar {
+    grid-column: 1 / -1;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .app-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.3px;
+  }
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--status-reading);
+    background: rgba(59,130,246,0.1);
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(59,130,246,0.2);
+  }
+  .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--status-reading);
+    animation: live-pulse 1.5s infinite;
+  }
+  @keyframes live-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--glow-reading); }
+    50% { opacity: 0.6; box-shadow: 0 0 0 4px transparent; }
+  }
+
+  .topbar-stats {
+    display: flex;
+    gap: 24px;
+  }
+  .stat-item {
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+  .stat-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .topbar-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .action-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .action-btn:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+    border-color: var(--border-light);
+  }
+  .action-btn.primary {
+    background: rgba(59,130,246,0.15);
+    border-color: rgba(59,130,246,0.3);
+    color: var(--status-reading);
+  }
+  .action-btn.primary:hover {
+    background: rgba(59,130,246,0.25);
+  }
+  .action-btn.danger {
+    background: rgba(239,68,68,0.1);
+    border-color: rgba(239,68,68,0.2);
+    color: var(--status-error);
+  }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+    padding: 16px 0;
+    overflow-y: auto;
+  }
+  .sidebar-section {
+    padding: 0 16px;
+    margin-bottom: 20px;
+  }
+  .sidebar-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  /* Status groups */
+  .status-group {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .status-group:hover {
+    border-color: var(--border-light);
+  }
+  .status-group.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .status-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+  }
+  .sg-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sg-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+  .sg-label {
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .sg-count {
+    font-size: 18px;
+    font-weight: 800;
+    min-width: 28px;
+    text-align: right;
+  }
+  .sg-bar {
+    height: 3px;
+    background: var(--bg-deep);
+  }
+  .sg-bar-fill {
+    height: 100%;
+    transition: width 0.5s;
+  }
+
+  /* Quick actions */
+  .quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .qa-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .qa-btn:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+  }
+  .qa-icon { font-size: 14px; width: 18px; text-align: center; }
+
+  /* Search */
+  .sidebar-search {
+    position: relative;
+    margin-bottom: 12px;
+  }
+  .sidebar-search input {
+    width: 100%;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 8px 10px 8px 30px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .sidebar-search input:focus { border-color: var(--accent); }
+  .sidebar-search input::placeholder { color: var(--text-muted); }
+  .sidebar-search .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* ===== MAIN CONTENT ===== */
+  .main {
+    padding: 16px 20px;
+    overflow-y: auto;
+  }
+
+  .main-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .main-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+  .view-modes {
+    display: flex;
+    gap: 2px;
+    background: var(--bg-card);
+    border-radius: 6px;
+    padding: 2px;
+    border: 1px solid var(--border);
+  }
+  .vm-btn {
+    padding: 4px 10px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .vm-btn.active {
+    background: var(--accent);
+    color: white;
+  }
+
+  /* ===== HEXAGONAL GRID ===== */
+  .hex-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+  }
+
+  .hex-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .hex-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+  }
+  .hex-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-light);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+
+  /* Status-specific styles */
+  .hex-card[data-status="reading"]::before { background: var(--status-reading); box-shadow: 0 0 12px var(--glow-reading); }
+  .hex-card[data-status="reading"] { border-color: rgba(59,130,246,0.3); }
+  .hex-card[data-status="reading"]:hover { border-color: var(--status-reading); box-shadow: 0 0 20px var(--glow-reading), 0 8px 24px rgba(0,0,0,0.3); }
+
+  .hex-card[data-status="connected"]::before { background: var(--status-connected); }
+  .hex-card[data-status="connected"] { border-color: rgba(16,185,129,0.2); }
+  .hex-card[data-status="connected"]:hover { border-color: var(--status-connected); }
+
+  .hex-card[data-status="error"]::before { background: var(--status-error); box-shadow: 0 0 12px var(--glow-error); }
+  .hex-card[data-status="error"] { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.05); }
+  .hex-card[data-status="error"]:hover { border-color: var(--status-error); box-shadow: 0 0 20px var(--glow-error), 0 8px 24px rgba(0,0,0,0.3); }
+
+  .hex-card[data-status="disconnected"]::before { background: var(--status-disconnected); }
+  .hex-card[data-status="disconnected"] { opacity: 0.55; }
+  .hex-card[data-status="disconnected"]:hover { opacity: 0.85; }
+
+  .hex-card[data-status="connecting"]::before { background: var(--status-connecting); animation: connecting-glow 1s infinite; }
+  @keyframes connecting-glow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Card internals */
+  .hc-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .hc-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .hc-num {
+    font-size: 9px;
+    color: var(--text-muted);
+    background: var(--bg-deep);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  /* Status indicator - central element */
+  .hc-status-ring {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 8px;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    position: relative;
+  }
+  .hc-status-ring .ring-bg {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid;
+    opacity: 0.3;
+  }
+  .hc-status-ring .ring-dot {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+  }
+  .hex-card[data-status="reading"] .ring-bg { border-color: var(--status-reading); animation: ring-pulse 2s infinite; }
+  .hex-card[data-status="reading"] .ring-dot { background: var(--status-reading); box-shadow: 0 0 10px var(--glow-reading); }
+  .hex-card[data-status="connected"] .ring-bg { border-color: var(--status-connected); }
+  .hex-card[data-status="connected"] .ring-dot { background: var(--status-connected); }
+  .hex-card[data-status="disconnected"] .ring-bg { border-color: var(--status-disconnected); }
+  .hex-card[data-status="disconnected"] .ring-dot { background: var(--status-disconnected); }
+  .hex-card[data-status="error"] .ring-bg { border-color: var(--status-error); animation: ring-pulse 0.8s infinite; }
+  .hex-card[data-status="error"] .ring-dot { background: var(--status-error); box-shadow: 0 0 10px var(--glow-error); }
+  .hex-card[data-status="connecting"] .ring-bg { border-color: var(--status-connecting); animation: ring-pulse 1s infinite; }
+  .hex-card[data-status="connecting"] .ring-dot { background: var(--status-connecting); }
+
+  @keyframes ring-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.3; }
+    50% { transform: scale(1.15); opacity: 0.6; }
+  }
+
+  /* Bottom section */
+  .hc-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .hc-ip {
+    font-size: 9px;
+    color: var(--text-muted);
+    font-family: 'Consolas', 'Courier New', monospace;
+  }
+  .hc-indicators {
+    display: flex;
+    gap: 3px;
+  }
+  .hc-ind {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+  .hc-ind.off {
+    border-radius: 1px;
+    background: none;
+    border: 1px solid var(--text-muted);
+    opacity: 0.4;
+  }
+  .hc-ind.on-beep { background: var(--beep); }
+  .hc-ind.on-light { background: var(--light); }
+  .hc-ind.on-buzzer { background: var(--buzzer); }
+  .hc-ind.active { animation: ind-glow 1s infinite; }
+  @keyframes ind-glow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ===== MATRIX VIEW (ultra compact) ===== */
+  .matrix-grid {
+    display: none;
+    grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+    gap: 4px;
+  }
+  .matrix-grid.show { display: grid; }
+
+  .matrix-cell {
+    aspect-ratio: 1;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    border: 1px solid transparent;
+  }
+  .matrix-cell:hover {
+    transform: scale(1.15);
+    z-index: 10;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .matrix-cell .mc-num {
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .matrix-cell .mc-label {
+    font-size: 7px;
+    opacity: 0.7;
+    margin-top: 1px;
+  }
+  .matrix-cell .mc-dots {
+    display: flex;
+    gap: 2px;
+    margin-top: 2px;
+  }
+  .matrix-cell .mc-dot {
+    width: 4px; height: 4px;
+    border-radius: 50%;
+  }
+
+  .matrix-cell[data-status="reading"] {
+    background: rgba(59,130,246,0.2);
+    border-color: rgba(59,130,246,0.4);
+    color: #93C5FD;
+  }
+  .matrix-cell[data-status="reading"]:hover {
+    background: rgba(59,130,246,0.35);
+    box-shadow: 0 0 16px var(--glow-reading), 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .matrix-cell[data-status="connected"] {
+    background: rgba(16,185,129,0.15);
+    border-color: rgba(16,185,129,0.3);
+    color: #6EE7B7;
+  }
+  .matrix-cell[data-status="disconnected"] {
+    background: rgba(107,114,128,0.1);
+    border-color: rgba(107,114,128,0.15);
+    color: #6B7280;
+  }
+  .matrix-cell[data-status="error"] {
+    background: rgba(239,68,68,0.2);
+    border-color: rgba(239,68,68,0.4);
+    color: #FCA5A5;
+    animation: error-blink 1.5s infinite;
+  }
+  @keyframes error-blink {
+    0%, 100% { border-color: rgba(239,68,68,0.4); }
+    50% { border-color: rgba(239,68,68,0.8); box-shadow: 0 0 8px var(--glow-error); }
+  }
+  .matrix-cell[data-status="connecting"] {
+    background: rgba(245,158,11,0.15);
+    border-color: rgba(245,158,11,0.3);
+    color: #FCD34D;
+  }
+
+  /* Tooltip for matrix */
+  .matrix-cell .m-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-light);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 50;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .matrix-cell .m-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--bg-panel);
+  }
+  .matrix-cell:hover .m-tooltip { display: block; }
+
+  /* ===== GROUPED VIEW ===== */
+  .grouped-view {
+    display: none;
+  }
+  .grouped-view.show { display: block; }
+
+  .group-section {
+    margin-bottom: 16px;
+  }
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    background: var(--bg-card);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .group-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+  .group-label {
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .group-count {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-left: auto;
+  }
+  .group-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding-left: 4px;
+  }
+  .group-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+  }
+  .group-chip:hover { transform: translateY(-1px); }
+
+  .group-chip[data-status="reading"] {
+    background: rgba(59,130,246,0.12);
+    color: #93C5FD;
+    border-color: rgba(59,130,246,0.25);
+  }
+  .group-chip[data-status="reading"]:hover { background: rgba(59,130,246,0.22); }
+
+  .group-chip[data-status="connected"] {
+    background: rgba(16,185,129,0.12);
+    color: #6EE7B7;
+    border-color: rgba(16,185,129,0.25);
+  }
+  .group-chip[data-status="connected"]:hover { background: rgba(16,185,129,0.22); }
+
+  .group-chip[data-status="disconnected"] {
+    background: rgba(107,114,128,0.1);
+    color: #9CA3AF;
+    border-color: rgba(107,114,128,0.2);
+  }
+  .group-chip[data-status="disconnected"]:hover { background: rgba(107,114,128,0.18); }
+
+  .group-chip[data-status="error"] {
+    background: rgba(239,68,68,0.12);
+    color: #FCA5A5;
+    border-color: rgba(239,68,68,0.25);
+  }
+  .group-chip[data-status="error"]:hover { background: rgba(239,68,68,0.22); }
+
+  .group-chip .gc-dots {
+    display: flex;
+    gap: 2px;
+  }
+  .group-chip .gc-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+  }
+
+  /* ===== BOTTOM STATUS BAR ===== */
+  .statusbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border);
+    padding: 6px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-muted);
+    z-index: 100;
+  }
+  .statusbar-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .sb-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .sb-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .statusbar-right {
+    font-family: 'Consolas', monospace;
+    letter-spacing: 0.3px;
+  }
+
+  /* ===== DESIGN NOTES ===== */
+  .notes {
+    margin: 24px 20px 60px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .notes h2 {
+    font-size: 16px;
+    color: var(--accent);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .notes h3 {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 16px 0 8px;
+  }
+  .notes p, .notes li {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+  .notes ul { padding-left: 20px; }
+  .notes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .note-item {
+    background: var(--bg-deep);
+    border-radius: 8px;
+    padding: 14px;
+    border: 1px solid var(--border);
+  }
+  .note-item h4 {
+    font-size: 12px;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+  .note-item p { font-size: 11px; margin: 0; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+    font-size: 12px;
+  }
+  .compare-table th, .compare-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .compare-table th {
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .compare-table td { color: var(--text-secondary); }
+  .compare-table tr:last-child td { border-bottom: none; }
+</style>
+</head>
+<body>
+
+<!-- Design Label -->
+<div class="design-label">
+  <strong>Design #2 - Dark NOC Monitoring Dashboard</strong><br>
+  Network Operations Center Style + 3 View Modes (Card / Matrix / Grouped)
+</div>
+
+<div class="app">
+
+  <!-- ===== TOP BAR ===== -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="app-title">RFID Middleware</div>
+      <div class="live-badge">
+        <span class="live-dot"></span>
+        LIVE
+      </div>
+    </div>
+
+    <div class="topbar-stats">
+      <div class="stat-item">
+        <div class="stat-value" style="color:var(--text-primary)" id="stat-total">50</div>
+        <div class="stat-label">Total</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" style="color:var(--status-connected)" id="stat-online">20</div>
+        <div class="stat-label">Online</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" style="color:var(--status-reading)" id="stat-reading">8</div>
+        <div class="stat-label">Reading</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" style="color:var(--status-error)" id="stat-error">3</div>
+        <div class="stat-label">Error</div>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="action-btn primary">&#9654; Start All</button>
+      <button class="action-btn">&#9632; Stop All</button>
+      <button class="action-btn">&#128268; Connect</button>
+      <button class="action-btn danger">&#128263; Disconnect</button>
+    </div>
+  </div>
+
+  <!-- ===== SIDEBAR ===== -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-search">
+        <span class="search-icon">&#128269;</span>
+        <input type="text" placeholder="Search..." id="searchInput" oninput="rerender()">
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">Status Groups</div>
+      <div id="statusGroups"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">Quick Actions</div>
+      <div class="quick-actions">
+        <button class="qa-btn"><span class="qa-icon">&#128268;</span> Connect All</button>
+        <button class="qa-btn"><span class="qa-icon">&#128263;</span> Disconnect All</button>
+        <button class="qa-btn"><span class="qa-icon">&#9654;</span> Start Inventory</button>
+        <button class="qa-btn"><span class="qa-icon">&#9632;</span> Stop Inventory</button>
+        <button class="qa-btn"><span class="qa-icon">&#8635;</span> Clear Tags</button>
+        <button class="qa-btn"><span class="qa-icon">&#9881;</span> Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MAIN ===== -->
+  <div class="main">
+    <div class="main-header">
+      <div class="main-title" id="mainTitle">All Readers (50)</div>
+      <div class="view-modes">
+        <button class="vm-btn active" onclick="setView('card')" id="vm-card">Card</button>
+        <button class="vm-btn" onclick="setView('matrix')" id="vm-matrix">Matrix</button>
+        <button class="vm-btn" onclick="setView('grouped')" id="vm-grouped">Grouped</button>
+      </div>
+    </div>
+
+    <!-- Card View -->
+    <div class="hex-grid" id="hexGrid"></div>
+
+    <!-- Matrix View -->
+    <div class="matrix-grid" id="matrixGrid"></div>
+
+    <!-- Grouped View -->
+    <div class="grouped-view" id="groupedView"></div>
+  </div>
+
+</div>
+
+<!-- Bottom Status Bar -->
+<div class="statusbar">
+  <div class="statusbar-left">
+    <div class="sb-item"><span class="sb-dot" style="background:var(--status-reading)"></span> Reading: 8</div>
+    <div class="sb-item"><span class="sb-dot" style="background:var(--status-connected)"></span> Connected: 12</div>
+    <div class="sb-item"><span class="sb-dot" style="background:var(--status-disconnected)"></span> Offline: 27</div>
+    <div class="sb-item"><span class="sb-dot" style="background:var(--status-error)"></span> Error: 3</div>
+    <span>|</span>
+    <span>API :18080 Active</span>
+  </div>
+  <div class="statusbar-right">2026-03-03 11:38:58</div>
+</div>
+
+<!-- ===== Design Notes ===== -->
+<div class="notes">
+  <h2>Design #2 vs Design #1 Comparison</h2>
+
+  <table class="compare-table">
+    <tr>
+      <th>Feature</th>
+      <th>Design #1 (Light Card Grid)</th>
+      <th>Design #2 (Dark NOC Dashboard)</th>
+    </tr>
+    <tr>
+      <td>Theme</td>
+      <td>Light background, clean minimal</td>
+      <td>Dark background, NOC monitoring center</td>
+    </tr>
+    <tr>
+      <td>Layout</td>
+      <td>Single column with summary bar</td>
+      <td>Sidebar + main content (2-column)</td>
+    </tr>
+    <tr>
+      <td>View Modes</td>
+      <td>Grid / Compact / List (table)</td>
+      <td>Card / Matrix / Grouped (by status)</td>
+    </tr>
+    <tr>
+      <td>Status Indicator</td>
+      <td>Top edge color bar + text badge</td>
+      <td>Top edge glow + center ring with pulse</td>
+    </tr>
+    <tr>
+      <td>Information Density</td>
+      <td>Medium - balanced readability</td>
+      <td>High - Matrix view shows 50 readers at once</td>
+    </tr>
+    <tr>
+      <td>Best For</td>
+      <td>General office use, bright environments</td>
+      <td>24/7 monitoring rooms, dark environments</td>
+    </tr>
+    <tr>
+      <td>Status Overview</td>
+      <td>Summary chips (top bar)</td>
+      <td>Sidebar groups with progress bars + top stats</td>
+    </tr>
+    <tr>
+      <td>Quick Actions</td>
+      <td>Header buttons</td>
+      <td>Sidebar dedicated section</td>
+    </tr>
+    <tr>
+      <td>Error Visibility</td>
+      <td>Red chip count</td>
+      <td>Glowing red border + blinking animation</td>
+    </tr>
+  </table>
+
+  <h3>Key Design Decisions</h3>
+  <div class="notes-grid">
+    <div class="note-item">
+      <h4>Dark Theme</h4>
+      <p>NOC/Monitoring Center style. Reduces eye strain during extended monitoring. Status colors have higher contrast on dark backgrounds. Glow effects are only possible on dark.</p>
+    </div>
+    <div class="note-item">
+      <h4>Sidebar Navigation</h4>
+      <p>Persistent status group display - always visible regardless of scroll. Click to filter. Search always accessible. Quick actions one click away.</p>
+    </div>
+    <div class="note-item">
+      <h4>Matrix View</h4>
+      <p>Ultra-compact 42px cells show all 50 readers without scrolling. Color-coded backgrounds for instant status recognition. Hover for details. Best for "at a glance" monitoring.</p>
+    </div>
+    <div class="note-item">
+      <h4>Grouped View</h4>
+      <p>Readers organized by status (Reading > Connected > Error > Offline). Priority ordering - problems visible first. Compact chip layout within each group.</p>
+    </div>
+    <div class="note-item">
+      <h4>Status Ring Animation</h4>
+      <p>Center ring element pulses for active states (reading/error). Glow effects highlight live readers. Static ring for stable states. Disconnected readers are dimmed (opacity).</p>
+    </div>
+    <div class="note-item">
+      <h4>Top Stats Bar</h4>
+      <p>Large numeric KPIs always visible: Total / Online / Reading / Error. Instant situational awareness without scanning individual cards.</p>
+    </div>
+  </div>
+
+  <h3>Swing Implementation</h3>
+  <ul>
+    <li><strong>Dark theme</strong>: UIManager.put() for global dark Look & Feel, or custom paint in each component</li>
+    <li><strong>Sidebar</strong>: JSplitPane with fixed left panel (220px), or BorderLayout WEST</li>
+    <li><strong>Glow effects</strong>: Graphics2D with RadialGradientPaint or semi-transparent fillOval layers</li>
+    <li><strong>Matrix view</strong>: GridLayout with fixed-size cells, each a custom painted JPanel</li>
+    <li><strong>Grouped view</strong>: Vertical BoxLayout with collapsible sections (JPanel + FlowLayout per group)</li>
+    <li><strong>Animations</strong>: javax.swing.Timer for pulse/blink (already implemented for blinkTimer)</li>
+    <li><strong>View switching</strong>: CardLayout on the main content panel</li>
+  </ul>
+</div>
+
+<script>
+const statusLabels = {
+  reading: 'Reading', connected: 'Connected',
+  disconnected: 'Offline', error: 'Error', connecting: 'Connecting'
+};
+const statusColors = {
+  reading: '#3B82F6', connected: '#10B981',
+  disconnected: '#6B7280', error: '#EF4444', connecting: '#F59E0B'
+};
+
+function makeReaders() {
+  const readers = [];
+  const dist = [];
+  for (let i = 0; i < 8; i++) dist.push('reading');
+  for (let i = 0; i < 12; i++) dist.push('connected');
+  for (let i = 0; i < 27; i++) dist.push('disconnected');
+  for (let i = 0; i < 3; i++) dist.push('error');
+  for (let i = dist.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [dist[i], dist[j]] = [dist[j], dist[i]];
+  }
+  for (let i = 1; i <= 50; i++) {
+    readers.push({
+      num: i,
+      name: `Reader-${String(i).padStart(2, '0')}`,
+      ip: i <= 2 ? `192.168.0.${140+i}` : `10.0.${Math.floor(i/20)}.${100+(i%20)}`,
+      port: 20058 + i - 1,
+      status: dist[i-1],
+      beep: Math.random() > 0.3,
+      light: Math.random() > 0.5,
+      buzzer: Math.random() > 0.6,
+      rssi: dist[i-1] === 'reading' ? -Math.floor(Math.random()*30+30) : null
+    });
+  }
+  return readers;
+}
+
+const readers = makeReaders();
+let currentView = 'card';
+let currentFilter = null;
+
+function getFiltered() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  return readers.filter(r => {
+    if (currentFilter && r.status !== currentFilter) return false;
+    if (q && !r.name.toLowerCase().includes(q) && !r.ip.includes(q)) return false;
+    return true;
+  });
+}
+
+function renderSidebar() {
+  const groups = {};
+  const order = ['reading', 'connected', 'connecting', 'error', 'disconnected'];
+  order.forEach(s => groups[s] = 0);
+  readers.forEach(r => groups[r.status] = (groups[r.status] || 0) + 1);
+
+  const container = document.getElementById('statusGroups');
+  container.innerHTML = '';
+
+  order.forEach(s => {
+    if (groups[s] === 0) return;
+    const pct = (groups[s] / 50 * 100).toFixed(0);
+    const active = currentFilter === s ? ' active' : '';
+    const div = document.createElement('div');
+    div.className = 'status-group' + active;
+    div.onclick = () => { currentFilter = currentFilter === s ? null : s; rerender(); };
+    div.innerHTML = `
+      <div class="status-group-header">
+        <div class="sg-left">
+          <div class="sg-dot" style="background:${statusColors[s]}"></div>
+          <div class="sg-label">${statusLabels[s]}</div>
+        </div>
+        <div class="sg-count" style="color:${statusColors[s]}">${groups[s]}</div>
+      </div>
+      <div class="sg-bar">
+        <div class="sg-bar-fill" style="width:${pct}%;background:${statusColors[s]}"></div>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function renderCards() {
+  const grid = document.getElementById('hexGrid');
+  grid.innerHTML = '';
+  const filtered = getFiltered();
+  document.getElementById('mainTitle').textContent =
+    `${currentFilter ? statusLabels[currentFilter] : 'All Readers'} (${filtered.length})`;
+
+  filtered.forEach(r => {
+    const card = document.createElement('div');
+    card.className = 'hex-card';
+    card.dataset.status = r.status;
+
+    const indB = r.beep ? `<div class="hc-ind on-beep ${r.status==='reading'?'active':''}"></div>` : `<div class="hc-ind off"></div>`;
+    const indL = r.light ? `<div class="hc-ind on-light"></div>` : `<div class="hc-ind off"></div>`;
+    const indZ = r.buzzer ? `<div class="hc-ind on-buzzer"></div>` : `<div class="hc-ind off"></div>`;
+
+    card.innerHTML = `
+      <div class="hc-top">
+        <div class="hc-name">${r.name}</div>
+        <div class="hc-num">#${r.num}</div>
+      </div>
+      <div class="hc-status-ring">
+        <div class="ring-bg"></div>
+        <div class="ring-dot"></div>
+      </div>
+      <div class="hc-bottom">
+        <div class="hc-ip">${r.ip}</div>
+        <div class="hc-indicators">${indB}${indL}${indZ}</div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function renderMatrix() {
+  const grid = document.getElementById('matrixGrid');
+  grid.innerHTML = '';
+  const filtered = getFiltered();
+
+  filtered.forEach(r => {
+    const cell = document.createElement('div');
+    cell.className = 'matrix-cell';
+    cell.dataset.status = r.status;
+
+    const dotB = r.beep ? `<div class="mc-dot" style="background:var(--beep)"></div>` : '';
+    const dotL = r.light ? `<div class="mc-dot" style="background:var(--light)"></div>` : '';
+    const dotZ = r.buzzer ? `<div class="mc-dot" style="background:var(--buzzer)"></div>` : '';
+
+    cell.innerHTML = `
+      <div class="mc-num">${String(r.num).padStart(2,'0')}</div>
+      <div class="mc-dots">${dotB}${dotL}${dotZ}</div>
+      <div class="m-tooltip">
+        <strong>${r.name}</strong> &mdash; ${statusLabels[r.status]}<br>
+        ${r.ip}:${r.port}${r.rssi ? ' | RSSI: '+r.rssi+'dBm' : ''}
+      </div>
+    `;
+    grid.appendChild(cell);
+  });
+}
+
+function renderGrouped() {
+  const view = document.getElementById('groupedView');
+  view.innerHTML = '';
+  const order = ['reading', 'error', 'connected', 'connecting', 'disconnected'];
+  const filtered = getFiltered();
+
+  order.forEach(s => {
+    const items = filtered.filter(r => r.status === s);
+    if (items.length === 0) return;
+
+    const section = document.createElement('div');
+    section.className = 'group-section';
+
+    let chipsHtml = '';
+    items.forEach(r => {
+      const dotB = r.beep ? `<div class="gc-dot" style="background:var(--beep)"></div>` : '';
+      const dotL = r.light ? `<div class="gc-dot" style="background:var(--light)"></div>` : '';
+      const dotZ = r.buzzer ? `<div class="gc-dot" style="background:var(--buzzer)"></div>` : '';
+      chipsHtml += `
+        <div class="group-chip" data-status="${s}" title="${r.ip}:${r.port}">
+          ${r.name}
+          <div class="gc-dots">${dotB}${dotL}${dotZ}</div>
+        </div>`;
+    });
+
+    section.innerHTML = `
+      <div class="group-header">
+        <div class="group-dot" style="background:${statusColors[s]}"></div>
+        <div class="group-label" style="color:${statusColors[s]}">${statusLabels[s]}</div>
+        <div class="group-count">${items.length} readers</div>
+      </div>
+      <div class="group-items">${chipsHtml}</div>
+    `;
+    view.appendChild(section);
+  });
+}
+
+function setView(v) {
+  currentView = v;
+  document.querySelectorAll('.vm-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('vm-' + v).classList.add('active');
+
+  document.getElementById('hexGrid').style.display = v === 'card' ? 'grid' : 'none';
+  document.getElementById('matrixGrid').classList.toggle('show', v === 'matrix');
+  document.getElementById('groupedView').classList.toggle('show', v === 'grouped');
+
+  rerender();
+}
+
+function rerender() {
+  renderSidebar();
+  if (currentView === 'card') renderCards();
+  else if (currentView === 'matrix') renderMatrix();
+  else renderGrouped();
+}
+
+rerender();
+</script>
+</body>
+</html>

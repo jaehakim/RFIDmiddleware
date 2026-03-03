@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFID Reader Status - UI/UX Design Mockup</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #F0F2F5;
+    --card-bg: #FFFFFF;
+    --border: #DADEE6;
+    --shadow: rgba(0,0,0,0.06);
+    --text-primary: #1A1D23;
+    --text-secondary: #4A5568;
+    --text-muted: #8892A4;
+
+    --status-disconnected: #B4B4B4;
+    --status-connecting: #FFC800;
+    --status-connected: #00B400;
+    --status-reading: #0078FF;
+    --status-error: #DC0000;
+
+    --beep-color: #2ECC71;
+    --light-color: #FFB400;
+    --buzzer-color: #1E96DC;
+
+    --header-bg: #1B2A4A;
+    --header-bg2: #243B63;
+    --accent: #8ABEF5;
+  }
+
+  body {
+    font-family: 'Malgun Gothic', 'Segoe UI', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    background: linear-gradient(180deg, var(--header-bg), var(--header-bg2));
+    padding: 0 20px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-title {
+    color: var(--accent);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .header-actions {
+    display: flex;
+    gap: 2px;
+  }
+  .header-btn {
+    background: none;
+    border: none;
+    color: #E8ECF1;
+    font-size: 12px;
+    padding: 8px 14px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.15s;
+    font-family: inherit;
+  }
+  .header-btn:hover { background: rgba(255,255,255,0.12); }
+  .header-sep {
+    width: 1px;
+    height: 28px;
+    background: rgba(255,255,255,0.2);
+    margin: 0 4px;
+    align-self: center;
+  }
+
+  /* ===== DESIGN LABEL ===== */
+  .design-label {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    text-align: center;
+    padding: 14px 20px;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+  }
+  .design-label strong { font-size: 15px; }
+
+  /* ===== SUMMARY BAR ===== */
+  .summary-bar {
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .summary-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin-right: 4px;
+  }
+  .summary-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .summary-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1.5px solid transparent;
+    user-select: none;
+  }
+  .summary-chip:hover { transform: translateY(-1px); box-shadow: 0 2px 6px var(--shadow); }
+  .summary-chip.active { border-color: currentColor; }
+  .summary-chip .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .summary-chip .count {
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .chip-disconnected { background: #F5F5F5; color: #777; }
+  .chip-disconnected .dot { background: var(--status-disconnected); }
+  .chip-connecting { background: #FFFBE6; color: #997A00; }
+  .chip-connecting .dot { background: var(--status-connecting); }
+  .chip-connected { background: #E8F5E8; color: #006E00; }
+  .chip-connected .dot { background: var(--status-connected); }
+  .chip-reading { background: #E8F0FF; color: #0060CC; }
+  .chip-reading .dot { background: var(--status-reading); animation: pulse 1.5s infinite; }
+  .chip-error { background: #FFE8E8; color: #B40000; }
+  .chip-error .dot { background: var(--status-error); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .summary-spacer { flex: 1; }
+
+  /* View toggle */
+  .view-toggle {
+    display: flex;
+    background: #F0F2F5;
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .view-btn {
+    padding: 5px 10px;
+    border: none;
+    background: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-muted);
+    transition: all 0.15s;
+    line-height: 1;
+  }
+  .view-btn.active {
+    background: white;
+    color: var(--text-primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  /* Search */
+  .search-box {
+    position: relative;
+  }
+  .search-box input {
+    width: 160px;
+    padding: 6px 10px 6px 28px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s, width 0.2s;
+  }
+  .search-box input:focus {
+    border-color: var(--status-reading);
+    width: 200px;
+  }
+  .search-box::before {
+    content: "\1F50D";
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+  }
+
+  /* ===== CONTENT ===== */
+  .content {
+    padding: 12px 16px;
+  }
+  .section-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    padding-left: 4px;
+  }
+
+  /* ===== GRID VIEW ===== */
+  .reader-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+    gap: 6px;
+  }
+
+  .reader-card {
+    background: var(--card-bg);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    padding: 0;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    box-shadow: 0 1px 3px var(--shadow);
+  }
+  .reader-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-color: #B8BEC8;
+  }
+
+  /* Status bar (top edge) */
+  .reader-card .status-bar {
+    height: 3px;
+    width: 100%;
+  }
+
+  .reader-card .card-body {
+    padding: 8px 10px 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* Top row: name + indicators */
+  .card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .reader-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-indicators {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+  .ind {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+  }
+  .ind.off {
+    border-radius: 2px;
+    border: 1px solid #C8CCD4;
+    background: none;
+  }
+  .ind.beep-on { background: var(--beep-color); }
+  .ind.light-on { background: var(--light-color); }
+  .ind.buzzer-on { background: var(--buzzer-color); }
+  .ind.active {
+    animation: ind-blink 0.8s infinite;
+    box-shadow: 0 0 4px currentColor;
+  }
+
+  @keyframes ind-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* Bottom row: status badge + IP */
+  .card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+    letter-spacing: -0.2px;
+  }
+  .status-badge .badge-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .badge-disconnected { background: #F0F0F0; color: #888; }
+  .badge-disconnected .badge-dot { background: var(--status-disconnected); }
+  .badge-connecting { background: #FFF8E0; color: #997A00; }
+  .badge-connecting .badge-dot { background: var(--status-connecting); }
+  .badge-connected { background: #E8F8E8; color: #007000; }
+  .badge-connected .badge-dot { background: var(--status-connected); }
+  .badge-reading { background: #E0EDFF; color: #0060CC; }
+  .badge-reading .badge-dot { background: var(--status-reading); animation: pulse 1.2s infinite; }
+  .badge-error { background: #FFE0E0; color: #CC0000; }
+  .badge-error .badge-dot { background: var(--status-error); }
+
+  .reader-ip {
+    font-size: 9px;
+    color: var(--text-muted);
+    font-family: 'Consolas', 'Courier New', monospace;
+  }
+
+  /* Hover tooltip */
+  .reader-card .tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text-primary);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 50;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+  .reader-card .tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--text-primary);
+  }
+  .reader-card:hover .tooltip { display: block; }
+  .tooltip-row {
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+  }
+  .tooltip-label { color: #8892A4; }
+
+  /* ===== COMPACT VIEW ===== */
+  .reader-grid.compact {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 4px;
+  }
+  .reader-grid.compact .reader-card {
+    border-radius: 6px;
+  }
+  .reader-grid.compact .card-body {
+    padding: 5px 6px;
+    gap: 3px;
+  }
+  .reader-grid.compact .reader-name {
+    font-size: 9px;
+  }
+  .reader-grid.compact .ind {
+    width: 5px; height: 5px;
+  }
+  .reader-grid.compact .card-bottom {
+    display: none;
+  }
+  .reader-grid.compact .status-bar {
+    height: 2px;
+  }
+
+  /* ===== LIST VIEW ===== */
+  .reader-list {
+    display: none;
+    background: var(--card-bg);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 1px 3px var(--shadow);
+  }
+  .reader-list.show { display: block; }
+
+  .list-header {
+    display: grid;
+    grid-template-columns: 50px 100px 140px 70px 80px 70px 70px 70px 1fr;
+    gap: 0;
+    padding: 0 12px;
+    background: #F5F6F8;
+    border-bottom: 2px solid #E2E5EA;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+  .list-header > div {
+    padding: 8px 6px;
+    text-align: center;
+  }
+  .list-header > div:nth-child(1) { text-align: center; }
+  .list-header > div:nth-child(2) { text-align: left; }
+  .list-header > div:nth-child(3) { text-align: left; }
+
+  .list-row {
+    display: grid;
+    grid-template-columns: 50px 100px 140px 70px 80px 70px 70px 70px 1fr;
+    gap: 0;
+    padding: 0 12px;
+    border-bottom: 1px solid #EEF0F2;
+    font-size: 12px;
+    align-items: center;
+    transition: background 0.1s;
+    cursor: pointer;
+  }
+  .list-row:hover { background: #F8F9FB; }
+  .list-row:nth-child(even) { background: #FAFBFC; }
+  .list-row:nth-child(even):hover { background: #F0F2F5; }
+  .list-row > div {
+    padding: 7px 6px;
+    text-align: center;
+  }
+  .list-row > div:nth-child(2) { text-align: left; font-weight: 600; }
+  .list-row > div:nth-child(3) {
+    text-align: left;
+    font-family: 'Consolas', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .list-row .list-indicators {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+  }
+  .list-row .ind {
+    width: 8px; height: 8px;
+  }
+
+  .list-num {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  /* ===== CONTEXT MENU (simulated) ===== */
+  .context-menu {
+    position: fixed;
+    top: 200px;
+    right: 30px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    padding: 6px 0;
+    width: 160px;
+    z-index: 200;
+    border: 1px solid #E0E0E0;
+    display: none;
+  }
+  .context-menu.show { display: block; }
+  .ctx-item {
+    padding: 8px 16px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ctx-item:hover { background: #F0F2F5; }
+  .ctx-sep { height: 1px; background: #EEE; margin: 4px 0; }
+
+  /* ===== BOTTOM BAR ===== */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--card-bg);
+    border-top: 1px solid var(--border);
+    padding: 6px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+    z-index: 100;
+  }
+  .bottom-bar .timestamp { font-family: 'Consolas', monospace; }
+
+  /* ===== DESIGN NOTES ===== */
+  .design-notes {
+    margin: 24px 16px 80px;
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px var(--shadow);
+  }
+  .design-notes h2 {
+    font-size: 16px;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  .design-notes h3 {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 16px 0 8px;
+  }
+  .design-notes p, .design-notes li {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+  .design-notes ul { padding-left: 20px; }
+  .design-notes .note-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 12px;
+  }
+  .note-card {
+    background: #F8F9FB;
+    border-radius: 8px;
+    padding: 14px;
+    border: 1px solid #EAECF0;
+  }
+  .note-card h4 {
+    font-size: 12px;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+  .note-card p {
+    font-size: 11px;
+    margin: 0;
+  }
+  .color-sample {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== Design Label ===== -->
+<div class="design-label">
+  <strong>RFID Reader Status - UI/UX Design Mockup</strong><br>
+  50 Readers Dashboard
+</div>
+
+<!-- ===== Header ===== -->
+<div class="header">
+  <div class="header-title">RFID Middleware</div>
+  <div class="header-actions">
+    <button class="header-btn">&#9679; Connect All</button>
+    <button class="header-btn">&#9675; Disconnect</button>
+    <div class="header-sep"></div>
+    <button class="header-btn">&#9654; Inventory</button>
+    <button class="header-btn">&#9632; Stop</button>
+    <div class="header-sep"></div>
+    <button class="header-btn">&#8635; Clear</button>
+    <button class="header-btn">&#9881; Settings</button>
+  </div>
+</div>
+
+<!-- ===== Summary Bar ===== -->
+<div class="summary-bar">
+  <div class="summary-title">Status</div>
+  <div class="summary-chips">
+    <div class="summary-chip chip-reading active" onclick="filterStatus('reading')">
+      <span class="dot" style="background:var(--status-reading)"></span>
+      <span>Reading</span>
+      <span class="count" id="count-reading">8</span>
+    </div>
+    <div class="summary-chip chip-connected" onclick="filterStatus('connected')">
+      <span class="dot" style="background:var(--status-connected)"></span>
+      <span>Connected</span>
+      <span class="count" id="count-connected">12</span>
+    </div>
+    <div class="summary-chip chip-disconnected" onclick="filterStatus('disconnected')">
+      <span class="dot" style="background:var(--status-disconnected)"></span>
+      <span>Disconnected</span>
+      <span class="count" id="count-disconnected">27</span>
+    </div>
+    <div class="summary-chip chip-error" onclick="filterStatus('error')">
+      <span class="dot" style="background:var(--status-error)"></span>
+      <span>Error</span>
+      <span class="count" id="count-error">3</span>
+    </div>
+  </div>
+
+  <div class="summary-spacer"></div>
+
+  <div class="search-box">
+    <input type="text" placeholder="Search reader..." id="searchInput" oninput="searchReaders()">
+  </div>
+
+  <div class="view-toggle">
+    <button class="view-btn active" onclick="setView('grid')" id="btn-grid" title="Grid">&#9638;</button>
+    <button class="view-btn" onclick="setView('compact')" id="btn-compact" title="Compact">&#9641;</button>
+    <button class="view-btn" onclick="setView('list')" id="btn-list" title="List">&#9776;</button>
+  </div>
+</div>
+
+<!-- ===== Grid View ===== -->
+<div class="content">
+  <div class="section-label" id="grid-label">Reader Status (50)</div>
+  <div class="reader-grid" id="readerGrid"></div>
+  <div class="reader-list" id="readerList">
+    <div class="list-header">
+      <div>#</div>
+      <div>Name</div>
+      <div>IP : Port</div>
+      <div>Status</div>
+      <div>RSSI</div>
+      <div>Beep</div>
+      <div>Light</div>
+      <div>Buzzer</div>
+      <div></div>
+    </div>
+    <div id="listBody"></div>
+  </div>
+</div>
+
+<!-- ===== Context Menu (demo) ===== -->
+<div class="context-menu" id="contextMenu">
+  <div class="ctx-item">&#128268; Connect</div>
+  <div class="ctx-item">&#128263; Disconnect</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item">&#9654; Start Inventory</div>
+  <div class="ctx-item">&#9632; Stop Inventory</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item">&#128308; Light ON</div>
+  <div class="ctx-item">&#128264; Buzzer ON</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item">&#9881; Antenna Config</div>
+</div>
+
+<!-- ===== Bottom Bar ===== -->
+<div class="bottom-bar">
+  <div>Total: <strong>50</strong> readers &nbsp;|&nbsp; Online: <strong>23</strong> &nbsp;|&nbsp; Reading: <strong>8</strong></div>
+  <div class="timestamp">2026-03-03 11:38:58 &nbsp;|&nbsp; API :18080</div>
+</div>
+
+<!-- ===== Design Notes ===== -->
+<div class="design-notes">
+  <h2>Design Notes</h2>
+
+  <div class="note-grid">
+    <div class="note-card">
+      <h4>1. Summary Bar (Status Overview)</h4>
+      <p>
+        Status Chip: Reading/Connected/Disconnected/Error count<br>
+        Click to filter by status<br>
+        50 readers' current state at a glance
+      </p>
+    </div>
+    <div class="note-card">
+      <h4>2. Three View Modes</h4>
+      <p>
+        <strong>Grid</strong>: Default card view with name, status, indicators, IP<br>
+        <strong>Compact</strong>: Minimal view showing only name + status color<br>
+        <strong>List</strong>: Table view with all details in rows
+      </p>
+    </div>
+    <div class="note-card">
+      <h4>3. Card Design (Top Status Bar)</h4>
+      <p>
+        Status color on top edge (not left side) for better scanability<br>
+        Name + 3 indicators (top row)<br>
+        Status badge + IP (bottom row)<br>
+        Hover: tooltip with full details + shadow elevation
+      </p>
+    </div>
+    <div class="note-card">
+      <h4>4. Color System</h4>
+      <p>
+        <span class="color-sample" style="background:var(--status-disconnected)"></span> Disconnected (Gray)<br>
+        <span class="color-sample" style="background:var(--status-connected)"></span> Connected (Green)<br>
+        <span class="color-sample" style="background:var(--status-reading)"></span> Reading (Blue, pulse)<br>
+        <span class="color-sample" style="background:var(--status-error)"></span> Error (Red)
+      </p>
+    </div>
+    <div class="note-card">
+      <h4>5. Indicator System</h4>
+      <p>
+        <span class="color-sample" style="background:var(--beep-color);border-radius:50%"></span> Beep (Green circle)<br>
+        <span class="color-sample" style="background:var(--light-color);border-radius:50%"></span> Warning Light (Orange circle)<br>
+        <span class="color-sample" style="background:var(--buzzer-color);border-radius:50%"></span> Buzzer (Blue circle)<br>
+        <span class="color-sample" style="background:none;border:1.5px solid #C8CCD4;border-radius:2px"></span> Disabled (Gray square outline)
+      </p>
+    </div>
+    <div class="note-card">
+      <h4>6. Interaction</h4>
+      <p>
+        Hover: card elevation + tooltip<br>
+        Right-click: context menu (connect/disconnect/inventory/antenna)<br>
+        Search: real-time filter by name or IP<br>
+        Status chip click: filter by status
+      </p>
+    </div>
+  </div>
+
+  <h3>Layout Calculation (Grid View)</h3>
+  <ul>
+    <li>Card width: 108px (min) ~ responsive (auto-fill)</li>
+    <li>900px window: ~8 cards/row, 50 readers = ~7 rows</li>
+    <li>1200px window: ~10 cards/row, 50 readers = 5 rows</li>
+    <li>1600px window: ~13 cards/row, 50 readers = 4 rows</li>
+  </ul>
+
+  <h3>Layout Calculation (Compact View)</h3>
+  <ul>
+    <li>Card width: 72px (min) ~ responsive</li>
+    <li>900px window: ~12 cards/row, 50 readers = ~5 rows</li>
+    <li>1200px window: ~16 cards/row, 50 readers = ~4 rows</li>
+  </ul>
+
+  <h3>Swing Implementation Notes</h3>
+  <ul>
+    <li>Status bar: top edge (3px height) instead of left side for better visual scanning</li>
+    <li>CSS grid auto-fill equivalent: WrapFlowLayout (already implemented)</li>
+    <li>Hover tooltip: JToolTip with HTML or custom JPopupMenu</li>
+    <li>Summary bar: JPanel with FlowLayout + custom painted chips</li>
+    <li>View toggle: CardLayout switching between grid/list panels</li>
+    <li>Search filter: DocumentListener on JTextField, hide/show cards</li>
+  </ul>
+</div>
+
+<script>
+// Reader data generation
+const statuses = ['reading', 'connected', 'disconnected', 'error', 'connecting'];
+const statusLabels = {
+  reading: 'Reading', connected: 'Connected', disconnected: 'Offline',
+  error: 'Error', connecting: 'Connecting'
+};
+
+function makeReaders() {
+  const readers = [];
+  // Assign realistic status distribution: 8 reading, 12 connected, 27 disconnected, 3 error
+  const dist = [];
+  for (let i = 0; i < 8; i++) dist.push('reading');
+  for (let i = 0; i < 12; i++) dist.push('connected');
+  for (let i = 0; i < 27; i++) dist.push('disconnected');
+  for (let i = 0; i < 3; i++) dist.push('error');
+  // Shuffle
+  for (let i = dist.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [dist[i], dist[j]] = [dist[j], dist[i]];
+  }
+
+  for (let i = 1; i <= 50; i++) {
+    const status = dist[i - 1];
+    const ip = i <= 2 ? `192.168.0.${140 + i}` : `10.0.${Math.floor(i/20)}.${100 + (i % 20)}`;
+    const port = 20058 + (i - 1);
+    const beep = Math.random() > 0.3;
+    const light = Math.random() > 0.5;
+    const buzzer = Math.random() > 0.6;
+    const rssi = status === 'reading' ? -Math.floor(Math.random() * 30 + 30) : '--';
+
+    readers.push({
+      num: i,
+      name: `Reader-${String(i).padStart(2, '0')}`,
+      ip, port, status, beep, light, buzzer, rssi
+    });
+  }
+  return readers;
+}
+
+const readers = makeReaders();
+let currentView = 'grid';
+let currentFilter = null;
+
+function getStatusColor(s) {
+  return { reading: '#0078FF', connected: '#00B400', disconnected: '#B4B4B4',
+           error: '#DC0000', connecting: '#FFC800' }[s];
+}
+
+function renderGrid() {
+  const grid = document.getElementById('readerGrid');
+  grid.innerHTML = '';
+
+  const filtered = readers.filter(r => {
+    if (currentFilter && r.status !== currentFilter) return false;
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    if (q && !r.name.toLowerCase().includes(q) && !r.ip.includes(q)) return false;
+    return true;
+  });
+
+  document.getElementById('grid-label').textContent =
+    `Reader Status (${filtered.length}${currentFilter ? ' - ' + statusLabels[currentFilter] : ''})`;
+
+  filtered.forEach(r => {
+    const color = getStatusColor(r.status);
+    const isReading = r.status === 'reading';
+
+    const card = document.createElement('div');
+    card.className = 'reader-card';
+    card.oncontextmenu = (e) => { e.preventDefault(); showContext(e); };
+
+    const indBeep = r.beep
+      ? `<div class="ind beep-on ${isReading ? 'active' : ''}" style="background:var(--beep-color)"></div>`
+      : `<div class="ind off"></div>`;
+    const indLight = r.light
+      ? `<div class="ind light-on" style="background:var(--light-color)"></div>`
+      : `<div class="ind off"></div>`;
+    const indBuzzer = r.buzzer
+      ? `<div class="ind buzzer-on" style="background:var(--buzzer-color)"></div>`
+      : `<div class="ind off"></div>`;
+
+    const badgeClass = `badge-${r.status}`;
+    const pulseClass = isReading ? 'style="animation:pulse 1.2s infinite"' : '';
+
+    card.innerHTML = `
+      <div class="status-bar" style="background:${color}"></div>
+      <div class="card-body">
+        <div class="card-top">
+          <div class="reader-name">${r.name}</div>
+          <div class="card-indicators">${indBeep}${indLight}${indBuzzer}</div>
+        </div>
+        <div class="card-bottom">
+          <div class="status-badge ${badgeClass}">
+            <span class="badge-dot" ${pulseClass}></span>
+            ${statusLabels[r.status]}
+          </div>
+          <div class="reader-ip">${r.ip}</div>
+        </div>
+      </div>
+      <div class="tooltip">
+        <div class="tooltip-row"><span class="tooltip-label">Name</span> <strong>${r.name}</strong></div>
+        <div class="tooltip-row"><span class="tooltip-label">Address</span> ${r.ip}:${r.port}</div>
+        <div class="tooltip-row"><span class="tooltip-label">Status</span> ${statusLabels[r.status]}</div>
+        <div class="tooltip-row"><span class="tooltip-label">RSSI</span> ${r.rssi} dBm</div>
+        <div class="tooltip-row"><span class="tooltip-label">Beep</span> ${r.beep ? 'ON' : 'OFF'} &nbsp; <span class="tooltip-label">Light</span> ${r.light ? 'ON' : 'OFF'} &nbsp; <span class="tooltip-label">Buzzer</span> ${r.buzzer ? 'ON' : 'OFF'}</div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function renderList() {
+  const body = document.getElementById('listBody');
+  body.innerHTML = '';
+
+  const filtered = readers.filter(r => {
+    if (currentFilter && r.status !== currentFilter) return false;
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    if (q && !r.name.toLowerCase().includes(q) && !r.ip.includes(q)) return false;
+    return true;
+  });
+
+  filtered.forEach(r => {
+    const color = getStatusColor(r.status);
+    const isReading = r.status === 'reading';
+
+    const indBeep = r.beep
+      ? `<div class="ind beep-on ${isReading ? 'active' : ''}" style="background:var(--beep-color)"></div>`
+      : `<div class="ind off"></div>`;
+    const indLight = r.light
+      ? `<div class="ind light-on" style="background:var(--light-color)"></div>`
+      : `<div class="ind off"></div>`;
+    const indBuzzer = r.buzzer
+      ? `<div class="ind buzzer-on" style="background:var(--buzzer-color)"></div>`
+      : `<div class="ind off"></div>`;
+
+    const badgeClass = `badge-${r.status}`;
+    const row = document.createElement('div');
+    row.className = 'list-row';
+    row.oncontextmenu = (e) => { e.preventDefault(); showContext(e); };
+    row.innerHTML = `
+      <div><span class="list-num">${r.num}</span></div>
+      <div>${r.name}</div>
+      <div>${r.ip}:${r.port}</div>
+      <div><span class="status-badge ${badgeClass}"><span class="badge-dot"></span>${statusLabels[r.status]}</span></div>
+      <div>${r.rssi}</div>
+      <div><div class="list-indicators">${indBeep}</div></div>
+      <div><div class="list-indicators">${indLight}</div></div>
+      <div><div class="list-indicators">${indBuzzer}</div></div>
+      <div></div>
+    `;
+    body.appendChild(row);
+  });
+}
+
+function setView(view) {
+  currentView = view;
+  const grid = document.getElementById('readerGrid');
+  const list = document.getElementById('readerList');
+
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+
+  if (view === 'grid') {
+    grid.style.display = 'grid';
+    grid.classList.remove('compact');
+    list.classList.remove('show');
+    document.getElementById('btn-grid').classList.add('active');
+  } else if (view === 'compact') {
+    grid.style.display = 'grid';
+    grid.classList.add('compact');
+    list.classList.remove('show');
+    document.getElementById('btn-compact').classList.add('active');
+  } else {
+    grid.style.display = 'none';
+    list.classList.add('show');
+    document.getElementById('btn-list').classList.add('active');
+    renderList();
+  }
+  renderGrid();
+}
+
+function filterStatus(status) {
+  if (currentFilter === status) {
+    currentFilter = null;
+    document.querySelectorAll('.summary-chip').forEach(c => c.classList.remove('active'));
+  } else {
+    currentFilter = status;
+    document.querySelectorAll('.summary-chip').forEach(c => c.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+  }
+  renderGrid();
+  if (currentView === 'list') renderList();
+}
+
+function searchReaders() {
+  renderGrid();
+  if (currentView === 'list') renderList();
+}
+
+function showContext(e) {
+  const menu = document.getElementById('contextMenu');
+  menu.style.top = e.clientY + 'px';
+  menu.style.left = e.clientX + 'px';
+  menu.style.right = 'auto';
+  menu.classList.add('show');
+  setTimeout(() => {
+    document.addEventListener('click', hideContext, { once: true });
+  }, 10);
+}
+function hideContext() {
+  document.getElementById('contextMenu').classList.remove('show');
+}
+
+// Initial render
+renderGrid();
+</script>
+
+</body>
+</html>

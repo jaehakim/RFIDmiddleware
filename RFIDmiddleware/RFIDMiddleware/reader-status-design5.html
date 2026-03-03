@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFID Reader Status - Radial Ring Dashboard</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#0D1117;--surface:#161B22;--surface2:#1C2333;--border:#30363D;
+    --text:#E6EDF3;--text2:#8B949E;--text3:#484F58;
+    --reading:#58A6FF;--reading-g:rgba(88,166,255,.35);
+    --connected:#3FB950;--connected-g:rgba(63,185,80,.3);
+    --error:#F85149;--error-g:rgba(248,81,73,.35);
+    --disconnected:#484F58;--disconnected-g:rgba(72,79,88,.2);
+    --connecting:#D29922;--connecting-g:rgba(210,153,34,.3);
+    --beep:#3FB950;--light:#D29922;--buzzer:#58A6FF;
+  }
+  body{font-family:'Segoe UI','Malgun Gothic',-apple-system,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh}
+
+  .tag{background:#010409;color:#484F58;text-align:center;padding:8px;font-size:11px;letter-spacing:1px;border-bottom:1px solid var(--border)}
+  .tag strong{color:#8B949E;font-size:13px}
+
+  .app{display:grid;grid-template-columns:1fr 300px;grid-template-rows:48px 1fr;height:calc(100vh - 33px)}
+
+  /* Top bar */
+  .top{grid-column:1/-1;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px}
+  .t-title{font-size:15px;font-weight:800;color:var(--reading);letter-spacing:-.3px}
+  .t-live{font-size:9px;font-weight:700;color:var(--reading);background:rgba(88,166,255,.1);padding:2px 8px;border-radius:8px;display:flex;align-items:center;gap:4px;border:1px solid rgba(88,166,255,.2)}
+  .t-dot{width:5px;height:5px;border-radius:50%;background:var(--reading);animation:bl 1.5s infinite}
+  @keyframes bl{0%,100%{opacity:1}50%{opacity:.25}}
+  .t-sp{flex:1}
+  .t-stats{display:flex;gap:20px}
+  .t-stat{text-align:center}
+  .t-val{font-size:18px;font-weight:800;line-height:1.1}
+  .t-lbl{font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+  .t-btns{display:flex;gap:4px;margin-left:12px}
+  .t-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:5px 10px;border-radius:6px;font-size:10px;cursor:pointer;font-family:inherit;transition:all .15s}
+  .t-btn:hover{background:#252D3A;color:var(--text)}
+
+  /* Ring area */
+  .ring-area{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .ring-canvas{position:relative}
+
+  /* Center hub */
+  .hub{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:180px;height:180px;border-radius:50%;
+    background:radial-gradient(circle,var(--surface2) 0%,var(--surface) 100%);
+    border:2px solid var(--border);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    z-index:20;transition:all .3s;
+  }
+  .hub.detail{border-color:var(--reading)}
+  .hub-total{font-size:40px;font-weight:900;line-height:1;letter-spacing:-2px}
+  .hub-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-top:2px}
+  .hub-sub{font-size:11px;color:var(--text2);margin-top:8px;display:flex;gap:12px}
+  .hub-sub-item{display:flex;align-items:center;gap:3px}
+  .hub-sub-dot{width:6px;height:6px;border-radius:50%}
+
+  /* Detail mode */
+  .hub-detail{display:none;text-align:center}
+  .hub.detail .hub-overview{display:none}
+  .hub.detail .hub-detail{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .hd-name{font-size:16px;font-weight:800}
+  .hd-status{font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:4px}
+  .hd-status .sd{width:5px;height:5px;border-radius:50%}
+  .hd-ip{font-size:11px;color:var(--text2);font-family:'Consolas',monospace}
+  .hd-rssi{font-size:13px;font-weight:700;color:var(--text)}
+  .hd-inds{display:flex;gap:10px;margin-top:4px}
+  .hd-ind{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--text2)}
+  .hd-ind-d{width:6px;height:6px;border-radius:50%}
+  .hd-back{font-size:10px;color:var(--text3);cursor:pointer;margin-top:6px;padding:2px 10px;border:1px solid var(--border);border-radius:4px;background:none;font-family:inherit;transition:all .15s}
+  .hd-back:hover{color:var(--text);border-color:var(--text2)}
+
+  /* Ring nodes */
+  .node{
+    position:absolute;
+    width:30px;height:30px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:9px;font-weight:800;
+    cursor:pointer;transition:all .2s;
+    z-index:10;border:2px solid;
+  }
+  .node:hover{transform:scale(1.35);z-index:30}
+  .node .n-glow{
+    position:absolute;inset:-4px;border-radius:50%;
+    opacity:0;transition:opacity .2s;pointer-events:none;
+  }
+  .node:hover .n-glow{opacity:1}
+
+  .node[data-s="reading"]{background:rgba(88,166,255,.2);border-color:var(--reading);color:var(--reading)}
+  .node[data-s="reading"] .n-glow{background:var(--reading-g);animation:glow 2s infinite}
+  .node[data-s="reading"].pulse{animation:nd-pulse 2s infinite}
+
+  .node[data-s="connected"]{background:rgba(63,185,80,.15);border-color:var(--connected);color:var(--connected)}
+  .node[data-s="connected"] .n-glow{background:var(--connected-g)}
+
+  .node[data-s="error"]{background:rgba(248,81,73,.2);border-color:var(--error);color:var(--error)}
+  .node[data-s="error"] .n-glow{background:var(--error-g);animation:glow .8s infinite}
+
+  .node[data-s="disconnected"]{background:rgba(72,79,88,.15);border-color:var(--disconnected);color:var(--disconnected);opacity:.5}
+  .node[data-s="disconnected"]:hover{opacity:1}
+  .node[data-s="disconnected"] .n-glow{background:var(--disconnected-g)}
+
+  .node[data-s="connecting"]{background:rgba(210,153,34,.15);border-color:var(--connecting);color:var(--connecting)}
+  .node[data-s="connecting"] .n-glow{background:var(--connecting-g)}
+
+  .node.selected{transform:scale(1.4);z-index:30;box-shadow:0 0 20px currentColor}
+
+  .node .n-inds{
+    position:absolute;bottom:-6px;display:flex;gap:1.5px;
+  }
+  .n-ind{width:3.5px;height:3.5px;border-radius:50%}
+  .n-ind.off{background:var(--text3);opacity:.3}
+
+  @keyframes glow{0%,100%{opacity:.4}50%{opacity:.8}}
+  @keyframes nd-pulse{0%,100%{box-shadow:0 0 0 0 currentColor}50%{box-shadow:0 0 0 6px transparent}}
+
+  /* Connector lines */
+  .connectors{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5}
+
+  /* Tooltip */
+  .node-tip{
+    display:none;position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);
+    background:var(--surface);border:1px solid var(--border);color:var(--text);
+    padding:8px 12px;border-radius:8px;font-size:10px;white-space:nowrap;z-index:50;
+    box-shadow:0 8px 24px rgba(0,0,0,.4);line-height:1.6;
+  }
+  .node:hover .node-tip{display:block}
+  .node-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--surface)}
+  .nt-name{font-weight:700;font-size:11px}
+
+  /* Side panel */
+  .side{background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+  .side-head{padding:12px 16px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+
+  .side-filters{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:4px}
+  .sf-chip{
+    display:flex;align-items:center;gap:4px;
+    padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;
+    cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text2);
+    transition:all .15s;user-select:none;
+  }
+  .sf-chip:hover{border-color:var(--text3)}
+  .sf-chip.active{border-color:currentColor;background:rgba(255,255,255,.05)}
+  .sf-dot{width:6px;height:6px;border-radius:3px}
+  .sf-count{font-weight:800}
+
+  /* Reader list */
+  .side-list{flex:1;overflow-y:auto;padding:4px 0}
+  .side-list::-webkit-scrollbar{width:4px}
+  .side-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+  .sl-item{
+    display:flex;align-items:center;gap:8px;
+    padding:7px 14px;cursor:pointer;transition:background .1s;font-size:11px;
+  }
+  .sl-item:hover{background:var(--surface2)}
+  .sl-item.active{background:rgba(88,166,255,.1);border-right:2px solid var(--reading)}
+  .sl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .sl-name{font-weight:600;flex:1}
+  .sl-ip{font-size:9px;color:var(--text3);font-family:'Consolas',monospace}
+  .sl-inds{display:flex;gap:2px}
+  .sl-ind{width:4px;height:4px;border-radius:50%}
+  .sl-ind.off{background:var(--text3);opacity:.3}
+
+  /* Search in side */
+  .side-search{padding:8px 12px;border-bottom:1px solid var(--border)}
+  .side-search input{
+    width:100%;background:var(--surface2);border:1px solid var(--border);
+    color:var(--text);padding:6px 10px;border-radius:6px;font-size:11px;
+    font-family:inherit;outline:none;
+  }
+  .side-search input:focus{border-color:var(--reading)}
+  .side-search input::placeholder{color:var(--text3)}
+
+  /* Notes */
+  .notes-wrap{position:fixed;bottom:8px;left:8px;right:308px;z-index:100}
+  .notes-toggle{
+    background:var(--surface);border:1px solid var(--border);color:var(--text2);
+    padding:4px 12px;border-radius:6px 6px 0 0;font-size:10px;cursor:pointer;
+    font-family:inherit;border-bottom:none;
+  }
+  .notes-body{
+    display:none;background:var(--surface);border:1px solid var(--border);
+    border-radius:0 8px 0 0;padding:16px;max-height:45vh;overflow-y:auto;
+    font-size:11px;color:var(--text2);line-height:1.7;
+  }
+  .notes-body.show{display:block}
+  .notes-body h3{font-size:12px;color:var(--text);margin:10px 0 4px}
+  .notes-body h3:first-child{margin-top:0}
+  .notes-body ul{padding-left:18px}
+  .ncmp{width:100%;border-collapse:collapse;font-size:10px;margin:6px 0}
+  .ncmp th,.ncmp td{padding:4px 8px;text-align:left;border-bottom:1px solid var(--border)}
+  .ncmp th{color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;font-size:9px}
+  .ncmp td:first-child{font-weight:700;color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="tag"><strong>Design #5 &mdash; Radial Ring Dashboard</strong><br>Radar-Style Ring + Center Hub + Side Panel</div>
+
+<div class="app">
+  <!-- Top -->
+  <div class="top">
+    <div class="t-title">RFID Middleware</div>
+    <div class="t-live"><span class="t-dot"></span>LIVE</div>
+    <div class="t-sp"></div>
+    <div class="t-stats">
+      <div class="t-stat"><div class="t-val" style="color:var(--text)" id="sTotal">50</div><div class="t-lbl">Total</div></div>
+      <div class="t-stat"><div class="t-val" style="color:var(--connected)" id="sOn">20</div><div class="t-lbl">Online</div></div>
+      <div class="t-stat"><div class="t-val" style="color:var(--reading)" id="sRd">8</div><div class="t-lbl">Reading</div></div>
+      <div class="t-stat"><div class="t-val" style="color:var(--error)" id="sEr">3</div><div class="t-lbl">Error</div></div>
+    </div>
+    <div class="t-btns">
+      <button class="t-btn">&#9654; Start</button>
+      <button class="t-btn">&#9632; Stop</button>
+      <button class="t-btn">&#128268;</button>
+      <button class="t-btn">&#128263;</button>
+      <button class="t-btn">&#9881;</button>
+    </div>
+  </div>
+
+  <!-- Ring -->
+  <div class="ring-area" id="ringArea">
+    <div class="ring-canvas" id="ringCanvas">
+      <svg class="connectors" id="connSvg"></svg>
+      <div class="hub" id="hub">
+        <div class="hub-overview">
+          <div class="hub-total" id="hubTotal">50</div>
+          <div class="hub-label">Readers</div>
+          <div class="hub-sub">
+            <div class="hub-sub-item"><div class="hub-sub-dot" style="background:var(--reading)"></div><span id="hubRd">8</span></div>
+            <div class="hub-sub-item"><div class="hub-sub-dot" style="background:var(--connected)"></div><span id="hubCo">12</span></div>
+            <div class="hub-sub-item"><div class="hub-sub-dot" style="background:var(--error)"></div><span id="hubEr">3</span></div>
+            <div class="hub-sub-item"><div class="hub-sub-dot" style="background:var(--disconnected)"></div><span id="hubDc">27</span></div>
+          </div>
+        </div>
+        <div class="hub-detail" id="hubDetail"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Side -->
+  <div class="side">
+    <div class="side-head">Readers</div>
+    <div class="side-search"><input type="text" placeholder="Search..." id="searchInput" oninput="render()"></div>
+    <div class="side-filters" id="sideFilters"></div>
+    <div class="side-list" id="sideList"></div>
+  </div>
+</div>
+
+<!-- Notes -->
+<div class="notes-wrap">
+  <button class="notes-toggle" onclick="document.getElementById('notesBody').classList.toggle('show')">&#9432; Design Notes</button>
+  <div class="notes-body" id="notesBody">
+    <h3>Design #5 - Radial Ring Dashboard</h3>
+    <p>Radar/Sonar-inspired layout. 50 readers arranged in two concentric rings around a central hub. Each node is a color-coded circle. The spatial arrangement makes it easy to scan all readers in a circular sweep, like a radar screen.</p>
+
+    <h3>Key Elements</h3>
+    <ul>
+      <li><strong>Center Hub</strong>: Shows aggregate stats by default. Click a reader node to show its details in the hub. Back button returns to overview.</li>
+      <li><strong>Dual Rings</strong>: Outer ring (30 readers) + inner ring (20 readers). Nodes are spaced evenly.</li>
+      <li><strong>Node Animation</strong>: Reading nodes pulse with glow. Error nodes blink rapidly. Disconnected nodes are dimmed.</li>
+      <li><strong>Connector Lines</strong>: When a reader is selected, a line connects the node to the center hub.</li>
+      <li><strong>Side Panel</strong>: Scrollable list for precise selection. Status filter chips. Search.</li>
+    </ul>
+
+    <h3>5 Designs Comparison</h3>
+    <table class="ncmp">
+      <tr><th></th><th>#1 Light Card</th><th>#2 Dark NOC</th><th>#3 Dot Grid</th><th>#4 Swim Lane</th><th>#5 Radial Ring</th></tr>
+      <tr><td>Layout</td><td>Flat grid</td><td>Sidebar+grid</td><td>Donut+waffle</td><td>Status lanes</td><td>Ring+hub</td></tr>
+      <tr><td>Metaphor</td><td>Dashboard</td><td>Control room</td><td>Analytics</td><td>Kanban board</td><td>Radar/Sonar</td></tr>
+      <tr><td>Reader Unit</td><td>Card</td><td>Card/cell</td><td>Dot cell</td><td>Pill chip</td><td>Ring node</td></tr>
+      <tr><td>Detail View</td><td>Tooltip</td><td>Tooltip</td><td>Tooltip</td><td>Tooltip</td><td>Center hub</td></tr>
+      <tr><td>Best For</td><td>General</td><td>24/7 monitoring</td><td>Quick scan</td><td>Incident focus</td><td>Spatial awareness</td></tr>
+    </table>
+
+    <h3>Swing Implementation</h3>
+    <ul>
+      <li><strong>Ring layout</strong>: Calculate x,y with cos/sin in paintComponent. Two radii for dual rings.</li>
+      <li><strong>Nodes</strong>: fillOval with color per status. Glow = semi-transparent larger oval behind.</li>
+      <li><strong>Center hub</strong>: Overlapping JPanel with CardLayout (overview vs detail).</li>
+      <li><strong>Connector line</strong>: Graphics2D.drawLine from node center to hub center with alpha stroke.</li>
+      <li><strong>Mouse detection</strong>: Point distance check in mouseClicked/mouseMoved for circular hit testing.</li>
+      <li><strong>Side panel</strong>: JScrollPane + BoxLayout of row JPanels. Click highlights node + shows detail in hub.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+const ST={
+  reading:{label:'Reading',color:'#58A6FF',glow:'rgba(88,166,255,.35)',order:0},
+  connected:{label:'Connected',color:'#3FB950',glow:'rgba(63,185,80,.3)',order:1},
+  connecting:{label:'Connecting',color:'#D29922',glow:'rgba(210,153,34,.3)',order:2},
+  error:{label:'Error',color:'#F85149',glow:'rgba(248,81,73,.35)',order:3},
+  disconnected:{label:'Disconnected',color:'#484F58',glow:'rgba(72,79,88,.2)',order:4},
+};
+
+function makeReaders(){
+  const d=[];
+  for(let i=0;i<8;i++)d.push('reading');
+  for(let i=0;i<12;i++)d.push('connected');
+  for(let i=0;i<27;i++)d.push('disconnected');
+  for(let i=0;i<3;i++)d.push('error');
+  for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}
+  return d.map((s,i)=>({
+    num:i+1,
+    name:`Reader-${String(i+1).padStart(2,'0')}`,
+    ip:i<2?`192.168.0.${141+i}`:`10.0.${Math.floor(i/20)}.${100+(i%20)}`,
+    port:20058+i,status:s,
+    beep:Math.random()>.3,light:Math.random()>.5,buzzer:Math.random()>.6,
+    rssi:s==='reading'?-Math.floor(Math.random()*30+30):null,
+  }));
+}
+
+const readers=makeReaders();
+let selected=null;
+let statusFilter=null;
+
+function counts(){const c={};readers.forEach(r=>c[r.status]=(c[r.status]||0)+1);return c;}
+
+function layoutRing(){
+  const area=document.getElementById('ringArea');
+  const W=area.clientWidth, H=area.clientHeight;
+  const cx=W/2, cy=H/2;
+  const canvas=document.getElementById('ringCanvas');
+  canvas.style.width=W+'px';canvas.style.height=H+'px';canvas.style.position='relative';
+
+  const svg=document.getElementById('connSvg');
+  svg.setAttribute('width',W);svg.setAttribute('height',H);
+  svg.innerHTML='';
+
+  // Draw ring guides
+  const outerR=Math.min(W,H)/2-40;
+  const innerR=outerR*0.62;
+
+  // Ring guide circles
+  ['rgba(48,54,61,.4)','rgba(48,54,61,.25)'].forEach((c,i)=>{
+    const r=i===0?outerR:innerR;
+    const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx',cx);circle.setAttribute('cy',cy);circle.setAttribute('r',r);
+    circle.setAttribute('fill','none');circle.setAttribute('stroke',c);circle.setAttribute('stroke-width','1');
+    circle.setAttribute('stroke-dasharray','4,6');
+    svg.appendChild(circle);
+  });
+
+  // Cross hairs
+  [0,90].forEach(a=>{
+    const rad=a*Math.PI/180;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',cx+outerR*Math.cos(rad)+10);
+    line.setAttribute('y1',cy+outerR*Math.sin(rad)+10);
+    line.setAttribute('x2',cx-outerR*Math.cos(rad)-10);
+    line.setAttribute('y2',cy-outerR*Math.sin(rad)-10);
+    line.setAttribute('stroke','rgba(48,54,61,.2)');
+    line.setAttribute('stroke-width','1');
+    line.setAttribute('stroke-dasharray','2,8');
+    svg.appendChild(line);
+  });
+
+  // Remove old nodes
+  canvas.querySelectorAll('.node').forEach(n=>n.remove());
+
+  const outerCount=30, innerCount=20;
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const filtered=readers.filter(r=>{
+    if(statusFilter&&r.status!==statusFilter)return false;
+    if(q&&!r.name.toLowerCase().includes(q)&&!r.ip.includes(q))return false;
+    return true;
+  });
+
+  filtered.forEach((r,i)=>{
+    const isOuter=i<outerCount&&i<filtered.length*(outerCount/50);
+    let angle,radius;
+    if(i<Math.ceil(filtered.length*outerCount/50)){
+      const count=Math.ceil(filtered.length*outerCount/50);
+      angle=(i/count)*Math.PI*2 - Math.PI/2;
+      radius=outerR;
+    } else {
+      const startIdx=Math.ceil(filtered.length*outerCount/50);
+      const count=filtered.length-startIdx;
+      const j=i-startIdx;
+      angle=(j/count)*Math.PI*2 - Math.PI/2;
+      radius=innerR;
+    }
+
+    const x=cx+radius*Math.cos(angle)-15;
+    const y=cy+radius*Math.sin(angle)-15;
+
+    const node=document.createElement('div');
+    node.className='node'+(r.status==='reading'?' pulse':'')+(selected===r.num?' selected':'');
+    node.dataset.s=r.status;
+    node.dataset.num=r.num;
+    node.style.left=x+'px';node.style.top=y+'px';
+
+    const iB=r.beep?`<div class="n-ind" style="background:var(--beep)"></div>`:`<div class="n-ind off"></div>`;
+    const iL=r.light?`<div class="n-ind" style="background:var(--light)"></div>`:`<div class="n-ind off"></div>`;
+    const iZ=r.buzzer?`<div class="n-ind" style="background:var(--buzzer)"></div>`:`<div class="n-ind off"></div>`;
+
+    node.innerHTML=`
+      <div class="n-glow"></div>
+      ${String(r.num).padStart(2,'0')}
+      <div class="n-inds">${iB}${iL}${iZ}</div>
+      <div class="node-tip">
+        <div class="nt-name">${r.name}</div>
+        <div style="color:#8B949E">${r.ip}:${r.port}</div>
+        ${r.rssi?`<div>RSSI: <b>${r.rssi} dBm</b></div>`:''}
+      </div>
+    `;
+
+    node.onclick=()=>selectReader(r.num);
+    canvas.appendChild(node);
+
+    // Connector line for selected
+    if(selected===r.num){
+      const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+      line.setAttribute('x1',x+15);line.setAttribute('y1',y+15);
+      line.setAttribute('x2',cx);line.setAttribute('y2',cy);
+      line.setAttribute('stroke',ST[r.status].color);
+      line.setAttribute('stroke-width','1.5');
+      line.setAttribute('stroke-opacity','0.5');
+      line.setAttribute('stroke-dasharray','4,4');
+      svg.appendChild(line);
+    }
+  });
+}
+
+function selectReader(num){
+  if(selected===num){selected=null;}
+  else{selected=num;}
+  updateHub();
+  render();
+}
+
+function updateHub(){
+  const hub=document.getElementById('hub');
+  const detail=document.getElementById('hubDetail');
+  if(selected){
+    const r=readers.find(x=>x.num===selected);
+    if(!r){selected=null;hub.classList.remove('detail');return;}
+    hub.classList.add('detail');
+    const s=ST[r.status];
+    const iB=`<div class="hd-ind"><div class="hd-ind-d" style="background:${r.beep?'var(--beep)':'var(--text3)'}"></div>${r.beep?'ON':'OFF'}</div>`;
+    const iL=`<div class="hd-ind"><div class="hd-ind-d" style="background:${r.light?'var(--light)':'var(--text3)'}"></div>${r.light?'ON':'OFF'}</div>`;
+    const iZ=`<div class="hd-ind"><div class="hd-ind-d" style="background:${r.buzzer?'var(--buzzer)':'var(--text3)'}"></div>${r.buzzer?'ON':'OFF'}</div>`;
+    detail.innerHTML=`
+      <div class="hd-name" style="color:${s.color}">${r.name}</div>
+      <div class="hd-status" style="background:${s.glow};color:${s.color}"><div class="sd" style="background:${s.color}"></div>${s.label}</div>
+      <div class="hd-ip">${r.ip}:${r.port}</div>
+      ${r.rssi?`<div class="hd-rssi">RSSI ${r.rssi} dBm</div>`:''}
+      <div class="hd-inds">
+        <span style="font-size:9px;color:var(--text3)">Beep</span>${iB}
+        <span style="font-size:9px;color:var(--text3)">Light</span>${iL}
+        <span style="font-size:9px;color:var(--text3)">Buzzer</span>${iZ}
+      </div>
+      <button class="hd-back" onclick="event.stopPropagation();selectReader(${r.num})">&#9664; Back</button>
+    `;
+  } else {
+    hub.classList.remove('detail');
+  }
+}
+
+function renderSideFilters(){
+  const c=counts();
+  const el=document.getElementById('sideFilters');
+  el.innerHTML='';
+  ['reading','connected','error','disconnected'].forEach(s=>{
+    if(!c[s])return;
+    const chip=document.createElement('div');
+    chip.className='sf-chip'+(statusFilter===s?' active':'');
+    chip.style.color=ST[s].color;
+    chip.innerHTML=`<div class="sf-dot" style="background:${ST[s].color}"></div>${ST[s].label}<span class="sf-count">${c[s]}</span>`;
+    chip.onclick=()=>{statusFilter=statusFilter===s?null:s;render();};
+    el.appendChild(chip);
+  });
+}
+
+function renderSideList(){
+  const el=document.getElementById('sideList');
+  el.innerHTML='';
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const list=readers.filter(r=>{
+    if(statusFilter&&r.status!==statusFilter)return false;
+    if(q&&!r.name.toLowerCase().includes(q)&&!r.ip.includes(q))return false;
+    return true;
+  });
+
+  list.forEach(r=>{
+    const s=ST[r.status];
+    const iB=r.beep?`<div class="sl-ind" style="background:var(--beep)"></div>`:`<div class="sl-ind off"></div>`;
+    const iL=r.light?`<div class="sl-ind" style="background:var(--light)"></div>`:`<div class="sl-ind off"></div>`;
+    const iZ=r.buzzer?`<div class="sl-ind" style="background:var(--buzzer)"></div>`:`<div class="sl-ind off"></div>`;
+
+    const item=document.createElement('div');
+    item.className='sl-item'+(selected===r.num?' active':'');
+    item.innerHTML=`
+      <div class="sl-dot" style="background:${s.color}"></div>
+      <div class="sl-name">${r.name}</div>
+      <div class="sl-inds">${iB}${iL}${iZ}</div>
+      <div class="sl-ip">${r.ip}</div>
+    `;
+    item.onclick=()=>selectReader(r.num);
+    el.appendChild(item);
+  });
+}
+
+function updateStats(){
+  const c=counts();
+  document.getElementById('sTotal').textContent=readers.length;
+  document.getElementById('sOn').textContent=(c.reading||0)+(c.connected||0);
+  document.getElementById('sRd').textContent=c.reading||0;
+  document.getElementById('sEr').textContent=c.error||0;
+  document.getElementById('hubRd').textContent=c.reading||0;
+  document.getElementById('hubCo').textContent=c.connected||0;
+  document.getElementById('hubEr').textContent=c.error||0;
+  document.getElementById('hubDc').textContent=c.disconnected||0;
+}
+
+function render(){
+  layoutRing();
+  renderSideFilters();
+  renderSideList();
+  updateHub();
+  updateStats();
+}
+
+render();
+window.addEventListener('resize',()=>render());
+</script>
+</body>
+</html>

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFID Reader Status - Swim Lane Dashboard</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#F4F5F7;--surface:#FFF;--border:#E2E4E9;
+    --text:#1A1D23;--text2:#5A6376;--text3:#9DA3B0;
+    --reading:#4F8CFF;--reading-bg:#EBF2FF;--reading-border:#B8D0FF;
+    --connected:#22C55E;--connected-bg:#ECFDF5;--connected-border:#A7F3D0;
+    --error:#EF4444;--error-bg:#FEF2F2;--error-border:#FECACA;
+    --disconnected:#94A3B8;--disconnected-bg:#F1F5F9;--disconnected-border:#CBD5E1;
+    --connecting:#EAB308;--connecting-bg:#FEFCE8;--connecting-border:#FDE68A;
+    --beep:#22C55E;--light:#F59E0B;--buzzer:#3B82F6;
+  }
+  body{font-family:'Segoe UI','Malgun Gothic',-apple-system,sans-serif;background:var(--bg);color:var(--text)}
+
+  .tag{background:#18181B;color:#71717A;text-align:center;padding:10px;font-size:12px;letter-spacing:1px}
+  .tag strong{color:#A1A1AA;font-size:14px}
+
+  /* Header */
+  .hd{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 28px;display:flex;align-items:center;justify-content:space-between}
+  .hd-left{display:flex;align-items:center;gap:14px}
+  .hd-title{font-size:17px;font-weight:800;letter-spacing:-.4px}
+  .hd-live{font-size:10px;font-weight:700;color:var(--reading);background:var(--reading-bg);padding:3px 8px;border-radius:10px;display:flex;align-items:center;gap:4px}
+  .hd-live span{width:5px;height:5px;border-radius:50%;background:var(--reading);animation:bl 1.5s infinite}
+  @keyframes bl{0%,100%{opacity:1}50%{opacity:.3}}
+  .hd-btns{display:flex;gap:5px}
+  .hd-btn{background:var(--bg);border:1px solid var(--border);padding:6px 12px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text2);transition:all .15s}
+  .hd-btn:hover{background:#EAECEF;color:var(--text)}
+  .hd-btn.pri{background:var(--reading);color:#fff;border-color:var(--reading)}
+
+  /* Stacked Bar */
+  .bar-wrap{padding:16px 28px 0}
+  .bar-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+  .sbar{display:flex;height:28px;border-radius:8px;overflow:hidden;background:var(--disconnected-bg);gap:1px}
+  .sbar-seg{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;transition:flex .5s;cursor:pointer;position:relative}
+  .sbar-seg:hover{filter:brightness(1.1)}
+  .sbar-seg .sbar-tip{display:none;position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#18181B;color:#E4E4E7;padding:5px 10px;border-radius:6px;font-size:11px;white-space:nowrap;z-index:50}
+  .sbar-seg:hover .sbar-tip{display:block}
+
+  /* Controls row */
+  .ctrl{padding:12px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .ctrl-search{position:relative}
+  .ctrl-search input{width:180px;padding:6px 10px 6px 28px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:inherit;outline:none;background:var(--surface);transition:all .2s}
+  .ctrl-search input:focus{border-color:var(--reading);width:220px}
+  .ctrl-search::before{content:"\1F50D";position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:11px}
+  .ctrl-spacer{flex:1}
+  .sort-label{font-size:11px;color:var(--text3)}
+  .sort-sel{font-size:11px;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-family:inherit;background:var(--surface);color:var(--text2);cursor:pointer}
+
+  /* Swim Lanes */
+  .lanes{padding:0 28px 20px;display:flex;flex-direction:column;gap:10px}
+  .lane{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}
+  .lane.collapsed .lane-body{display:none}
+  .lane-head{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;user-select:none;transition:background .1s}
+  .lane-head:hover{background:rgba(0,0,0,.02)}
+  .lane-dot{width:10px;height:10px;border-radius:4px;flex-shrink:0}
+  .lane-name{font-size:13px;font-weight:700;flex-shrink:0}
+  .lane-count{font-size:12px;font-weight:800;margin-left:2px}
+  .lane-pct{font-size:10px;color:var(--text3);margin-left:4px}
+  .lane-mini-bar{flex:1;height:4px;background:var(--bg);border-radius:2px;overflow:hidden;margin:0 8px}
+  .lane-mini-fill{height:100%;border-radius:2px;transition:width .5s}
+  .lane-toggle{font-size:11px;color:var(--text3);padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;font-family:inherit;transition:all .15s}
+  .lane-toggle:hover{background:var(--bg)}
+
+  .lane-body{padding:6px 12px 12px;display:flex;flex-wrap:wrap;gap:4px}
+
+  /* Reader Pill */
+  .pill{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:5px 10px;border-radius:8px;font-size:11px;font-weight:600;
+    cursor:pointer;transition:all .15s;border:1px solid transparent;position:relative;
+  }
+  .pill:hover{transform:translateY(-1px)}
+
+  .pill[data-s="reading"]{background:var(--reading-bg);color:#1D4ED8;border-color:var(--reading-border)}
+  .pill[data-s="reading"]:hover{background:#DBEAFE;box-shadow:0 2px 8px rgba(79,140,255,.2)}
+  .pill[data-s="connected"]{background:var(--connected-bg);color:#15803D;border-color:var(--connected-border)}
+  .pill[data-s="connected"]:hover{background:#DCFCE7;box-shadow:0 2px 8px rgba(34,197,94,.15)}
+  .pill[data-s="error"]{background:var(--error-bg);color:#B91C1C;border-color:var(--error-border)}
+  .pill[data-s="error"]:hover{background:#FEE2E2;box-shadow:0 2px 8px rgba(239,68,68,.2)}
+  .pill[data-s="disconnected"]{background:var(--disconnected-bg);color:#475569;border-color:var(--disconnected-border)}
+  .pill[data-s="disconnected"]:hover{background:#E2E8F0}
+  .pill[data-s="connecting"]{background:var(--connecting-bg);color:#A16207;border-color:var(--connecting-border)}
+
+  .pill-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+  .pill[data-s="reading"] .pill-dot{background:var(--reading);animation:bl 1.2s infinite}
+  .pill[data-s="connected"] .pill-dot{background:var(--connected)}
+  .pill[data-s="error"] .pill-dot{background:var(--error);animation:bl .6s infinite}
+  .pill[data-s="disconnected"] .pill-dot{background:var(--disconnected)}
+  .pill[data-s="connecting"] .pill-dot{background:var(--connecting);animation:bl 1s infinite}
+
+  .pill-name{white-space:nowrap}
+  .pill-inds{display:flex;gap:2px;margin-left:2px}
+  .pill-ind{width:4px;height:4px;border-radius:50%}
+  .pill-ind.off{background:#CBD5E1}
+
+  /* Pill tooltip */
+  .pill .ptip{
+    display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+    background:#18181B;color:#E4E4E7;padding:10px 14px;border-radius:10px;
+    font-size:11px;white-space:nowrap;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.18);line-height:1.6;
+  }
+  .pill .ptip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#18181B}
+  .pill:hover .ptip{display:block}
+  .ptip-name{font-weight:700;font-size:12px;color:#FFF}
+  .ptip-badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:4px}
+  .ptip-row{color:#9CA3AF}
+  .ptip-row b{color:#D4D4D8}
+  .ptip-inds{display:flex;gap:8px;margin-top:3px}
+  .ptip-ind{display:flex;align-items:center;gap:3px;font-size:10px}
+  .ptip-id{width:5px;height:5px;border-radius:50%}
+
+  /* Empty lane */
+  .lane-empty{padding:8px 16px;font-size:11px;color:var(--text3);font-style:italic}
+
+  /* Bottom */
+  .bot{padding:8px 28px 12px;font-size:10px;color:var(--text3);display:flex;justify-content:space-between}
+  .bot span{font-family:'Consolas',monospace}
+
+  /* Notes */
+  .notes{max-width:920px;margin:10px auto 50px;padding:0 28px}
+  .nc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px}
+  .nc h2{font-size:15px;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+  .nc h3{font-size:13px;color:var(--text2);margin:16px 0 8px}
+  .nc ul{font-size:12px;color:var(--text2);line-height:1.8;padding-left:20px}
+  .ng2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .ni2{background:var(--bg);border-radius:10px;padding:14px}
+  .ni2 h4{font-size:12px;margin-bottom:5px}
+  .ni2 p{font-size:11px;color:var(--text2);line-height:1.7;margin:0}
+  .cmp{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+  .cmp th,.cmp td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--border)}
+  .cmp th{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+  .cmp td{color:var(--text2)}
+  .cmp tr:last-child td{border:none}
+  .cmp td:first-child{font-weight:700;color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="tag"><strong>Design #4 &mdash; Swim Lane Dashboard</strong><br>Stacked Bar + Status Lanes + Reader Pills</div>
+
+<!-- Header -->
+<div class="hd">
+  <div class="hd-left">
+    <div class="hd-title">RFID Middleware</div>
+    <div class="hd-live"><span></span> LIVE</div>
+  </div>
+  <div class="hd-btns">
+    <button class="hd-btn pri">&#9654; Start All</button>
+    <button class="hd-btn">&#9632; Stop</button>
+    <button class="hd-btn">&#128268; Connect</button>
+    <button class="hd-btn">&#128263; Disconnect</button>
+    <button class="hd-btn">&#9881;</button>
+  </div>
+</div>
+
+<!-- Stacked Bar -->
+<div class="bar-wrap">
+  <div class="bar-label">Status Distribution</div>
+  <div class="sbar" id="sbar"></div>
+</div>
+
+<!-- Controls -->
+<div class="ctrl">
+  <div class="ctrl-search"><input type="text" placeholder="Search reader..." id="searchInput" oninput="render()"></div>
+  <div class="ctrl-spacer"></div>
+  <span class="sort-label">Sort:</span>
+  <select class="sort-sel" id="sortSel" onchange="render()">
+    <option value="num">Number</option>
+    <option value="name">Name</option>
+    <option value="ip">IP</option>
+  </select>
+</div>
+
+<!-- Swim Lanes -->
+<div class="lanes" id="lanes"></div>
+
+<div class="bot">
+  <div>Total: <b>50</b> &bull; Online: <b id="bOn">20</b> &bull; Reading: <b id="bRd">8</b> &bull; Error: <b id="bEr">3</b></div>
+  <span>API :18080 &bull; 2026-03-03 11:38:58</span>
+</div>
+
+<!-- Notes -->
+<div class="notes"><div class="nc">
+  <h2>Design #4 Key Concepts</h2>
+  <div class="ng2">
+    <div class="ni2">
+      <h4>Swim Lane Layout</h4>
+      <p>Each status = one collapsible lane. Readers flow into their status lane as colored pills. Instantly answers "which readers need attention?" by looking at the Error lane. Lane size reflects reader count visually.</p>
+    </div>
+    <div class="ni2">
+      <h4>Stacked Bar (Top)</h4>
+      <p>Proportional distribution of all 50 readers in a single horizontal bar. Each segment is clickable to scroll to that lane. Shows exact counts. Status at a glance in 0.3 seconds.</p>
+    </div>
+    <div class="ni2">
+      <h4>Reader Pills</h4>
+      <p>Compact colored chips: status dot + name + 3 indicator dots. Hover for full tooltip (IP, port, RSSI, indicator details). Colored background + border matches status. Minimal footprint, maximum density.</p>
+    </div>
+    <div class="ni2">
+      <h4>Collapsible Lanes</h4>
+      <p>Click lane header to collapse/expand. Hide offline readers to focus on active ones. Progress bar in header shows proportion. Collapse Disconnected lane (27 readers) to save space.</p>
+    </div>
+  </div>
+
+  <h3>4 Designs Comparison</h3>
+  <table class="cmp">
+    <tr><th></th><th>#1 Light Card</th><th>#2 Dark NOC</th><th>#3 Minimal Dot</th><th>#4 Swim Lane</th></tr>
+    <tr><td>Concept</td><td>Card grid</td><td>Monitoring center</td><td>Data visualization</td><td>Status grouping</td></tr>
+    <tr><td>Layout</td><td>Flat grid</td><td>Sidebar + grid</td><td>Donut + waffle</td><td>Horizontal lanes</td></tr>
+    <tr><td>Reader Unit</td><td>Card (108px)</td><td>Card / Cell (42px)</td><td>Dot cell (34px)</td><td>Pill (inline)</td></tr>
+    <tr><td>Grouping</td><td>None (filter)</td><td>Sidebar / tab</td><td>None (filter)</td><td>Always grouped</td></tr>
+    <tr><td>Key Strength</td><td>Balanced info</td><td>High density</td><td>Quick scan</td><td>Problem focus</td></tr>
+    <tr><td>Best For</td><td>General use</td><td>24/7 rooms</td><td>Status check</td><td>Incident response</td></tr>
+    <tr><td>Unique</td><td>List/table view</td><td>Glow effects</td><td>Donut + ring anim</td><td>Collapsible lanes</td></tr>
+  </table>
+
+  <h3>Swing Implementation</h3>
+  <ul>
+    <li><strong>Stacked bar</strong>: Custom JPanel, paintComponent draws colored fillRect segments proportionally.</li>
+    <li><strong>Swim lanes</strong>: Vertical BoxLayout of lane panels. Each lane = JPanel(BorderLayout) with header + WrapFlowLayout body.</li>
+    <li><strong>Collapsible</strong>: Toggle body panel visibility on header click, revalidate parent.</li>
+    <li><strong>Reader pills</strong>: Custom painted JPanel with rounded rect background, inline dot + text + indicator dots.</li>
+    <li><strong>Lane reflow</strong>: When reader status changes, remove pill from old lane, add to new lane, revalidate both.</li>
+    <li><strong>Search filter</strong>: DocumentListener on JTextField, setVisible(false) on non-matching pills.</li>
+  </ul>
+</div></div>
+
+<script>
+const STATUS={
+  reading:{label:'Reading',color:'#4F8CFF',bg:'#EBF2FF',border:'#B8D0FF',order:0},
+  connected:{label:'Connected',color:'#22C55E',bg:'#ECFDF5',border:'#A7F3D0',order:1},
+  connecting:{label:'Connecting',color:'#EAB308',bg:'#FEFCE8',border:'#FDE68A',order:2},
+  error:{label:'Error',color:'#EF4444',bg:'#FEF2F2',border:'#FECACA',order:3},
+  disconnected:{label:'Disconnected',color:'#94A3B8',bg:'#F1F5F9',border:'#CBD5E1',order:4},
+};
+
+function makeReaders(){
+  const d=[];
+  for(let i=0;i<8;i++)d.push('reading');
+  for(let i=0;i<12;i++)d.push('connected');
+  for(let i=0;i<27;i++)d.push('disconnected');
+  for(let i=0;i<3;i++)d.push('error');
+  for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}
+  return d.map((s,i)=>({
+    num:i+1,
+    name:`Reader-${String(i+1).padStart(2,'0')}`,
+    ip:i<2?`192.168.0.${141+i}`:`10.0.${Math.floor(i/20)}.${100+(i%20)}`,
+    port:20058+i,status:s,
+    beep:Math.random()>.3,light:Math.random()>.5,buzzer:Math.random()>.6,
+    rssi:s==='reading'?-Math.floor(Math.random()*30+30):null,
+  }));
+}
+
+const readers=makeReaders();
+const collapsed={};
+
+function counts(){const c={};readers.forEach(r=>c[r.status]=(c[r.status]||0)+1);return c;}
+
+function renderBar(){
+  const c=counts(),el=document.getElementById('sbar');
+  el.innerHTML='';
+  ['reading','connected','connecting','error','disconnected'].forEach(s=>{
+    if(!c[s])return;
+    const seg=document.createElement('div');
+    seg.className='sbar-seg';
+    seg.style.flex=c[s];
+    seg.style.background=STATUS[s].color;
+    seg.textContent=c[s];
+    seg.innerHTML+=`<div class="sbar-tip">${STATUS[s].label}: ${c[s]} (${(c[s]/50*100).toFixed(0)}%)</div>`;
+    seg.onclick=()=>{
+      const lane=document.getElementById('lane-'+s);
+      if(lane)lane.scrollIntoView({behavior:'smooth',block:'start'});
+    };
+    el.appendChild(seg);
+  });
+}
+
+function makePill(r){
+  const s=STATUS[r.status];
+  const iB=r.beep?`<div class="pill-ind" style="background:var(--beep)"></div>`:`<div class="pill-ind off"></div>`;
+  const iL=r.light?`<div class="pill-ind" style="background:var(--light)"></div>`:`<div class="pill-ind off"></div>`;
+  const iZ=r.buzzer?`<div class="pill-ind" style="background:var(--buzzer)"></div>`:`<div class="pill-ind off"></div>`;
+
+  const tipBg={reading:'rgba(79,140,255,.2)',connected:'rgba(34,197,94,.2)',error:'rgba(239,68,68,.2)',disconnected:'rgba(148,163,184,.2)',connecting:'rgba(234,179,8,.2)'}[r.status];
+  const tIB=`<div class="ptip-ind"><div class="ptip-id" style="background:${r.beep?'var(--beep)':'#6B7280'}"></div>Beep ${r.beep?'ON':'OFF'}</div>`;
+  const tIL=`<div class="ptip-ind"><div class="ptip-id" style="background:${r.light?'var(--light)':'#6B7280'}"></div>Light ${r.light?'ON':'OFF'}</div>`;
+  const tIZ=`<div class="ptip-ind"><div class="ptip-id" style="background:${r.buzzer?'var(--buzzer)':'#6B7280'}"></div>Buzzer ${r.buzzer?'ON':'OFF'}</div>`;
+
+  return `<div class="pill" data-s="${r.status}">
+    <div class="pill-dot"></div>
+    <span class="pill-name">${r.name}</span>
+    <div class="pill-inds">${iB}${iL}${iZ}</div>
+    <div class="ptip">
+      <div><span class="ptip-name">${r.name}</span><span class="ptip-badge" style="background:${tipBg};color:${s.color}">${s.label}</span></div>
+      <div class="ptip-row">${r.ip}:${r.port}${r.rssi?` &bull; <b>RSSI ${r.rssi} dBm</b>`:''}</div>
+      <div class="ptip-inds">${tIB}${tIL}${tIZ}</div>
+    </div>
+  </div>`;
+}
+
+function render(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const sort=document.getElementById('sortSel').value;
+  const filtered=readers.filter(r=>{
+    if(q&&!r.name.toLowerCase().includes(q)&&!r.ip.includes(q))return false;
+    return true;
+  });
+
+  const sorted=[...filtered].sort((a,b)=>{
+    if(sort==='name')return a.name.localeCompare(b.name);
+    if(sort==='ip')return a.ip.localeCompare(b.ip)||a.port-b.port;
+    return a.num-b.num;
+  });
+
+  const groups={};
+  sorted.forEach(r=>{if(!groups[r.status])groups[r.status]=[];groups[r.status].push(r);});
+
+  const el=document.getElementById('lanes');
+  el.innerHTML='';
+
+  ['reading','connected','connecting','error','disconnected'].forEach(s=>{
+    const items=groups[s]||[];
+    const S=STATUS[s];
+    const isCollapsed=!!collapsed[s];
+    const pct=readers.filter(r=>r.status===s).length;
+    const pctVal=(pct/50*100).toFixed(0);
+
+    const lane=document.createElement('div');
+    lane.className='lane'+(isCollapsed?' collapsed':'');
+    lane.id='lane-'+s;
+
+    const pills=items.length?items.map(makePill).join(''):`<div class="lane-empty">No readers</div>`;
+
+    lane.innerHTML=`
+      <div class="lane-head" onclick="toggleLane('${s}')">
+        <div class="lane-dot" style="background:${S.color}"></div>
+        <div class="lane-name">${S.label}</div>
+        <div class="lane-count" style="color:${S.color}">${items.length}</div>
+        <div class="lane-pct">${pctVal}%</div>
+        <div class="lane-mini-bar"><div class="lane-mini-fill" style="width:${pctVal}%;background:${S.color}"></div></div>
+        <button class="lane-toggle" onclick="event.stopPropagation();toggleLane('${s}')">${isCollapsed?'&#9660; Expand':'&#9650; Collapse'}</button>
+      </div>
+      <div class="lane-body">${pills}</div>
+    `;
+    el.appendChild(lane);
+  });
+
+  renderBar();
+  const c=counts();
+  document.getElementById('bOn').textContent=(c.reading||0)+(c.connected||0);
+  document.getElementById('bRd').textContent=c.reading||0;
+  document.getElementById('bEr').textContent=c.error||0;
+}
+
+function toggleLane(s){collapsed[s]=!collapsed[s];render();}
+
+render();
+</script>
+</body>
+</html>

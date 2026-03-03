@@ -113,7 +113,7 @@ public class ReaderStatusPanel extends JPanel {
         int contentH = rows * iconH + vgap;
         int totalH = labelH + contentH + 4;
 
-        int maxH = labelH + 3 * iconH + vgap + 4;
+        int maxH = labelH + 5 * iconH + vgap + 4;
         setPreferredSize(new Dimension(0, Math.min(totalH, maxH)));
 
         revalidate();

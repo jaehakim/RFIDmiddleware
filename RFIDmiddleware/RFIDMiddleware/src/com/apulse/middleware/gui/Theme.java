@@ -58,14 +58,14 @@ public final class Theme {
     public static final Font LOG = new Font("\ub9d1\uc740 \uace0\ub515", Font.PLAIN, 12);
 
     // --- Dimensions ---
-    public static final int CARD_W = 100;
-    public static final int CARD_H = 64;
+    public static final int CARD_W = 72;
+    public static final int CARD_H = 42;
     public static final int HEADER_H = 52;
     public static final int TABLE_ROW_H = 26;
     public static final int BTN_ROUND = 6;
-    public static final int CARD_BAR_W = 6;
-    public static final int CARD_ROUND = 8;
-    public static final int CARD_GAP = 6;
+    public static final int CARD_BAR_W = 4;
+    public static final int CARD_ROUND = 6;
+    public static final int CARD_GAP = 4;
 
     // --- Header icon factory ---
     private static final int ICON_SIZE = 14;

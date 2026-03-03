@@ -264,31 +264,30 @@ public class ReaderIconComponent extends JPanel {
         g2.fillRect(0, 0, barW, h);
         g2.setClip(null);
 
-        int textLeft = barW + 7;
-        int midY = h / 2;
+        int textLeft = barW + 5;
 
-        // Row 1: reader name (top, smaller font)
+        // Row 1: reader name (top, compact font)
         g2.setColor(Theme.CARD_TEXT);
         g2.setFont(new Font("\ub9d1\uc740 \uace0\ub515", Font.BOLD, 9));
         FontMetrics fm = g2.getFontMetrics();
-        g2.drawString(readerName, textLeft, fm.getAscent() + 3);
+        g2.drawString(readerName, textLeft, fm.getAscent() + 2);
 
-        // Row 2: status circle (center of card area below name)
-        int circleD = 34;
-        int nameBottom = fm.getAscent() + 3 + fm.getDescent();
-        int availTop = nameBottom + 2;
-        int availBottom = h - 4;
+        // Row 2: status circle (compact, centered below name)
+        int circleD = 18;
+        int nameBottom = fm.getAscent() + 2 + fm.getDescent();
+        int availTop = nameBottom + 1;
+        int availBottom = h - 3;
         int circleCY = (availTop + availBottom) / 2;
         int contentLeft = textLeft;
-        int contentRight = w - 28;
+        int contentRight = w - 22;
         int circleCX = (contentLeft + contentRight) / 2;
         int circleX = circleCX - circleD / 2;
         int circleY = circleCY - circleD / 2;
 
         // Glow/pulse for READING state
         if (status == ReaderStatus.READING) {
-            int glowAlpha = blinkOn ? 50 : 20;
-            int glowSize = blinkOn ? 8 : 4;
+            int glowAlpha = blinkOn ? 40 : 15;
+            int glowSize = blinkOn ? 4 : 2;
             g2.setColor(new Color(statusColor.getRed(), statusColor.getGreen(), statusColor.getBlue(), glowAlpha));
             g2.fillOval(circleX - glowSize, circleY - glowSize, circleD + glowSize * 2, circleD + glowSize * 2);
         }
@@ -305,27 +304,26 @@ public class ReaderIconComponent extends JPanel {
         g2.fillOval(circleX, circleY, circleD, circleD);
 
         // Inner highlight
-        g2.setColor(new Color(255, 255, 255, 70));
-        g2.fillOval(circleX + 4, circleY + 3, circleD / 2, circleD / 2 - 1);
+        g2.setColor(new Color(255, 255, 255, 60));
+        g2.fillOval(circleX + 2, circleY + 2, circleD / 2, circleD / 2 - 1);
 
-        // 3 indicators: beep / light / buzzer (비프음 → 경광등 → 부저)
-        // OFF=gray square, ON=color circle, ACTIVE=color circle blinking
-        int indSize = 10;
-        int indGap = 3;
+        // 3 indicators: beep / light / buzzer (vertical, right side, compact)
+        int indSize = 7;
+        int indGap = 2;
         int totalInd = indSize * 3 + indGap * 2;
-        int indX = w - indSize - 8;
-        int indStartY = midY - totalInd / 2;
+        int indX = w - indSize - 6;
+        int indStartY = (h - totalInd) / 2;
 
-        // 1) 비프음
+        // 1) beep
         Color beepColor = new Color(0x2E, 0xCC, 0x71);
         boolean beepActive = beepEnabled && status == ReaderStatus.READING;
         drawIndicator(g2, indX, indStartY, indSize, beepEnabled, beepActive, beepColor);
 
-        // 2) 경광등
+        // 2) light
         int lightIY = indStartY + indSize + indGap;
         drawIndicator(g2, indX, lightIY, indSize, lightConfigEnabled, lightOn, Theme.INDICATOR_LIGHT_ON);
 
-        // 3) 부저
+        // 3) buzzer
         int buzzerIY = lightIY + indSize + indGap;
         drawIndicator(g2, indX, buzzerIY, indSize, buzzerConfigEnabled, buzzerOn, Theme.INDICATOR_BUZZER_ON);
 
@@ -342,13 +340,13 @@ public class ReaderIconComponent extends JPanel {
         if (!configOn) {
             // Gray square outline
             g2.setColor(Theme.INDICATOR_OFF);
-            g2.setStroke(new BasicStroke(1.2f));
+            g2.setStroke(new BasicStroke(1.0f));
             g2.drawRect(x, y, size, size);
         } else if (active) {
             // Blinking colored circle
             if (blinkOn) {
-                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 50));
-                g2.fillOval(x - 3, y - 3, size + 6, size + 6);
+                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 40));
+                g2.fillOval(x - 2, y - 2, size + 4, size + 4);
                 g2.setColor(color);
             } else {
                 g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 80));

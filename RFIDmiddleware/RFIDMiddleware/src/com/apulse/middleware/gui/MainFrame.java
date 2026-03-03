@@ -354,7 +354,7 @@ public class MainFrame extends JFrame {
     private void showHelpDialog() {
         String html = "<html><body style='font-family:\ub9d1\uc740 \uace0\ub515,sans-serif; width:450px; padding:4px;'>"
 
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px;'>\ub9ac\ub354\uae30 \uc0c1\ud0dc</h2>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px;'>[ \ub9ac\ub354\uae30 \uc0c1\ud0dc ]</h2>"
 
             + "<h3>\uc0c1\ud0dc \uc0c9\uc0c1</h3>"
             + "<table cellpadding='4' cellspacing='0' border='0'>"
@@ -411,7 +411,7 @@ public class MainFrame extends JFrame {
             + "<tr><td><b>\uc124\uc815 \uc800\uc7a5</b></td><td>\uac00\uc838\uc628 \uc124\uc815\uac12\uc774 readers.cfg\uc5d0 \uc790\ub3d9 \uc800\uc7a5\ub428</td></tr>"
             + "</table>"
 
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>\ubc18\ucd9c\uc54c\ub9bc (\uacbd\uad11\ub4f1 + \ubd80\uc800)</h2>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>[ \ubc18\ucd9c\uc54c\ub9bc (\uacbd\uad11\ub4f1 + \ubd80\uc800) ]</h2>"
             + "<table cellpadding='4' cellspacing='0' border='0'>"
             + "<tr><td><b>\ub3d9\uc791 \uc870\uac74</b></td><td>\ubc18\ucd9c\uc54c\ub9bc \uac10\uc9c0 + \ub9ac\ub354\uae30 \uc124\uc815\uc5d0\uc11c \uacbd\uad11\ub4f1/\ubd80\uc800 '\uc801\uc6a9'(1)</td></tr>"
             + "<tr><td><b>\uacbd\uad11\ub4f1</b></td><td>\ub9b4\ub808\uc774 1\ubc88 = <b style='color:#DC0000;'>\ube68\uac04\ub4f1</b> (\uc124\uc815\uc2dc\uac04 \uc790\ub3d9 \uc18c\ub4f1)</td></tr>"
@@ -429,12 +429,12 @@ public class MainFrame extends JFrame {
             + "<tr><td align='center'>2</td><td style='color:#1E96DC;'><b>\ubd80\uc800</b></td><td>\ubc18\ucd9c\uc54c\ub9bc \uc790\ub3d9 \uc6b8\ub9bc (\uc124\uc815\uc2dc\uac04)</td></tr>"
             + "</table>"
 
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>\ud0dc\uadf8 \ub370\uc774\ud130</h2>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>[ \ud0dc\uadf8 \ub370\uc774\ud130 ]</h2>"
             + "<table cellpadding='4' cellspacing='0' border='0'>"
             + "<tr><td><b>\uc2dc\uac04</b></td><td>\ud0dc\uadf8\uac00 \ub9c8\uc9c0\ub9c9\uc73c\ub85c \uc77d\ud78c \uc2dc\uac01 (yyyy-MM-dd HH:mm:ss)</td></tr>"
             + "<tr><td><b>\ub9ac\ub354\uae30</b></td><td>\ud0dc\uadf8\ub97c \uc77d\uc740 \ub9ac\ub354\uae30 \uc774\ub984</td></tr>"
             + "<tr><td><b>EPC</b></td><td>\ud0dc\uadf8\uc758 EPC(Electronic Product Code) 16\uc9c4\uc218 \uac12</td></tr>"
-            + "<tr><td><b>RSSI</b></td><td>\uc218\uc2e0 \uc2e0\ud638 \uac15\ub3c4 (dBm), \uac12\uc774 \ud074\uc218\ub85d \uac00\uae4c\uc774 \uc704\uce58</td></tr>"
+            + "<tr><td><b>RSSI</b></td><td>\uc218\uc2e0 \uc2e0\ud638 \uac15\ub3c4 (dBm), \uac12\uc774 \ud074\uc218\ub85d \uac00\uae4c\uc774 \uc704\uce58 (0\uc5d0 \uac00\uae4c\uc6b8\uc218\ub85d)</td></tr>"
             + "<tr><td><b>\ud69f\uc218</b></td><td>\ub3d9\uc77c \ud0dc\uadf8\uac00 \uc77d\ud78c \ub204\uc801 \ud69f\uc218 (\uc911\ubcf5\uc81c\uac70 \ubaa8\ub4dc)</td></tr>"
             + "<tr><td style='background:#FFE8E8;color:#B40000;'><b>\ubc18\ucd9c\uc54c\ub9bc \ud589</b></td>"
             +     "<td>\ubbf8\ud5c8\uac00 \ubc18\ucd9c \uc790\uc0b0 (\uacbd\uad11\ub4f1 \ube68\uac04\ub4f1 + DB \uae30\ub85d)</td></tr>"
@@ -450,7 +450,7 @@ public class MainFrame extends JFrame {
             + "<tr><td><b>DB \uc870\ud68c</b></td><td>\uae30\uac04\uc744 \uc9c0\uc815\ud558\uc5ec DB\uc5d0 \uc800\uc7a5\ub41c \ud0dc\uadf8 \uc774\ub825 \uc870\ud68c</td></tr>"
             + "</table>"
 
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>DB \ud14c\uc774\ube14\ubcc4 \ub370\uc774\ud130 \ud750\ub984</h2>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>[ DB \ud14c\uc774\ube14\ubcc4 \ub370\uc774\ud130 \ud750\ub984 ]</h2>"
             + "<table cellpadding='4' cellspacing='0' border='1' style='border-collapse:collapse;'>"
             + "<tr style='background:#E8E8E8;'>"
             +   "<th>\ud14c\uc774\ube14</th><th>\uad00\ub9ac \uc8fc\uccb4</th><th>\ubbf8\ub4e4\uc6e8\uc5b4 \ub3d9\uc791</th><th>\uc2dc\uc810</th></tr>"
@@ -476,7 +476,7 @@ public class MainFrame extends JFrame {
             + "&rarr; assets\uc5d0 \uc5c6\uac70\ub098 \ubc18\ucd9c \ud5c8\uc6a9\ub428 &rarr; \uc77c\ubc18 \ud0dc\uadf8 \ucc98\ub9ac"
             + "</p>"
 
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>\uc678\ubd80 API (REST)</h2>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>[ \uc678\ubd80 API (REST) ]</h2>"
             + "<p>\ud3ec\ud2b8 <b>18080</b>\uc5d0\uc11c HTTP REST API\ub97c \uc81c\uacf5\ud569\ub2c8\ub2e4.</p>"
 
             + "<h3>\uc870\ud68c API (GET)</h3>"
@@ -518,7 +518,7 @@ public class MainFrame extends JFrame {
             + "<h3>Swagger UI</h3>"
             + "<p><code>http://localhost:18080/swagger</code> &mdash; \ube0c\ub77c\uc6b0\uc800\uc5d0\uc11c API \ud14c\uc2a4\ud2b8 \uac00\ub2a5</p>"
 
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>EPC Mask \ud544\ud130</h2>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>[ EPC Mask \ud544\ud130 ]</h2>"
             + "<table cellpadding='4' cellspacing='0' border='0'>"
             + "<tr><td><b>\uc124\uc815 \uc704\uce58</b></td><td>\uc124\uc815 \ub2e4\uc774\uc5bc\ub85c\uadf8 \uc0c1\ub2e8 EPC Mask \uc785\ub825 \ud544\ub4dc</td></tr>"
             + "<tr><td><b>\ub3d9\uc791</b></td><td>EPC\uac00 mask \uac12\uc73c\ub85c \uc2dc\uc791\ud558\ub294 \ud0dc\uadf8\ub9cc \ucc98\ub9ac (\ub300\uc18c\ubb38\uc790 \ubb34\uc2dc)</td></tr>"
@@ -529,7 +529,7 @@ public class MainFrame extends JFrame {
             + "</table>"
             + "<p style='font-size:11px;'>\uc608: MASK=0420 \uc124\uc815 \uc2dc EPC\uac00 0420\uc73c\ub85c \uc2dc\uc791\ud558\ub294 \ud0dc\uadf8\ub9cc \ud45c\uc2dc/\uc800\uc7a5\ub429\ub2c8\ub2e4.</p>"
 
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>\uacbd\uad11\ub4f1(\ubd80\uc800) \uc54c\ub9bc \uc2dc\uac04</h2>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>[ \uacbd\uad11\ub4f1(\ubd80\uc800) \uc54c\ub9bc \uc2dc\uac04 ]</h2>"
             + "<table cellpadding='4' cellspacing='0' border='0'>"
             + "<tr><td><b>\uc124\uc815 \uc704\uce58</b></td><td>\uc124\uc815 \ub2e4\uc774\uc5bc\ub85c\uadf8 \uc0c1\ub2e8 \uacbd\uad11\ub4f1(\ubd80\uc800) \uc54c\ub9bc \uc2dc\uac04(\ucd08) \uc785\ub825 \ud544\ub4dc</td></tr>"
             + "<tr><td><b>\ub3d9\uc791</b></td><td>\ubbf8\ud5c8\uac00 \ubc18\ucd9c \uac10\uc9c0 \uc2dc \uacbd\uad11\ub4f1/\ubd80\uc800 \uc790\ub3d9 OFF\uae4c\uc9c0\uc758 \uc2dc\uac04(\ucd08)</td></tr>"
@@ -539,7 +539,7 @@ public class MainFrame extends JFrame {
             + "<tr><td><b>\uc7ac\uc2dc\uc791</b></td><td>\ubbf8\ub4e4\uc6e8\uc5b4 \uc7ac\uc2dc\uc791 \ubd88\ud544\uc694 (\uc124\uc815 \uc800\uc7a5 \uc989\uc2dc \uc801\uc6a9)</td></tr>"
             + "</table>"
 
-            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>\ub85c\uadf8</h2>"
+            + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>[ \ub85c\uadf8 ]</h2>"
             + "<p>\ub9ac\ub354\uae30 \uc5f0\uacb0, \uba85\ub839 \uc804\uc1a1, \uc624\ub958 \ub4f1 \ubbf8\ub4e4\uc6e8\uc5b4\uc758 \ubaa8\ub4e0 \ub3d9\uc791 \uc774\ub825\uc744 \ud45c\uc2dc\ud569\ub2c8\ub2e4.</p>"
             + "<table cellpadding='3' cellspacing='0' border='0'>"
             + "<tr><td><b>\ud3ec\ub9f7</b></td><td><code>[\uc2dc\uac04] [\ub9ac\ub354\uae30\uba85] \uba54\uc2dc\uc9c0</code></td></tr>"

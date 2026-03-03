@@ -51,7 +51,7 @@ public class TagDataPanel extends JPanel {
         setBackground(Theme.CONTENT_BG);
 
         // Section label instead of TitledBorder
-        add(Theme.createSectionLabel("\ud0dc\uadf8 \ub370\uc774\ud130"), BorderLayout.NORTH);
+        add(Theme.createSectionLabel("[ \ud0dc\uadf8 \ub370\uc774\ud130 ]"), BorderLayout.NORTH);
 
         dbDedupCache = Caffeine.newBuilder()
             .expireAfterWrite(cacheTtlSeconds, TimeUnit.SECONDS)

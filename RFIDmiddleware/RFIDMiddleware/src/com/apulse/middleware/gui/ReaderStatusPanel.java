@@ -22,7 +22,7 @@ public class ReaderStatusPanel extends JPanel {
         setBackground(Theme.CONTENT_BG);
 
         // Section label instead of TitledBorder
-        add(Theme.createSectionLabel("\ub9ac\ub354\uae30 \uc0c1\ud0dc"), BorderLayout.NORTH);
+        add(Theme.createSectionLabel("[ \ub9ac\ub354\uae30 \uc0c1\ud0dc ]"), BorderLayout.NORTH);
 
         iconContainer = new JPanel(new WrapFlowLayout(FlowLayout.LEFT, Theme.CARD_GAP, Theme.CARD_GAP));
         iconContainer.setOpaque(true);

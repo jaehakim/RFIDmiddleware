@@ -22,7 +22,7 @@ public class LogPanel extends JPanel {
         setPreferredSize(new Dimension(0, 150));
 
         // Section label instead of TitledBorder
-        add(Theme.createSectionLabel("\ub85c\uadf8"), BorderLayout.NORTH);
+        add(Theme.createSectionLabel("[ \ub85c\uadf8 ]"), BorderLayout.NORTH);
 
         logArea = new JTextArea();
         logArea.setEditable(false);

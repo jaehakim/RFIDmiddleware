@@ -103,12 +103,14 @@ public class DashboardHtml {
             + "\n"
             // Readers tab
             + "<div id=\"tab-readers\" class=\"tab-content active\">\n"
+            + "  <h3 style=\"margin-bottom:12px;color:#1B2A4A\">[ \ub9ac\ub354\uae30 ]</h3>\n"
             + "  <div class=\"toolbar\"><button onclick=\"loadReaders()\">새로고침</button></div>\n"
             + "  <div id=\"readers-table\"></div>\n"
             + "</div>\n"
             + "\n"
             // Tags tab
             + "<div id=\"tab-tags\" class=\"tab-content\">\n"
+            + "  <h3 style=\"margin-bottom:12px;color:#1B2A4A\">[ \ud0dc\uadf8 \ub370\uc774\ud130 ]</h3>\n"
             + "  <div class=\"toolbar\">\n"
             + "    <button onclick=\"clearTags()\">태그 초기화</button>\n"
             + "    <span id=\"tag-status\" style=\"font-size:13px;color:#666\"></span>\n"
@@ -118,14 +120,16 @@ public class DashboardHtml {
             + "\n"
             // Assets tab
             + "<div id=\"tab-assets\" class=\"tab-content\">\n"
+            + "  <h3 style=\"margin-bottom:12px;color:#1B2A4A\">[ \uc790\uc0b0 \ubaa9\ub85d ]</h3>\n"
             + "  <div class=\"toolbar\"><button onclick=\"loadAssets()\">새로고침</button></div>\n"
             + "  <div id=\"assets-table\"></div>\n"
             + "</div>\n"
             + "\n"
             // Permissions tab
             + "<div id=\"tab-permissions\" class=\"tab-content\">\n"
+            + "  <h3 style=\"margin-bottom:12px;color:#1B2A4A\">[ \ubc18\ucd9c\ud5c8\uc6a9 ]</h3>\n"
             + "  <div class=\"form-section\">\n"
-            + "    <h3>반출허용 추가</h3>\n"
+            + "    <h3>\ubc18\ucd9c\ud5c8\uc6a9 \ucd94\uac00</h3>\n"
             + "    <div class=\"form-row\">\n"
             + "      <label>EPC</label><input id=\"perm-epc\" placeholder=\"EPC\" style=\"width:200px\">\n"
             + "      <label>시작</label><input id=\"perm-start\" type=\"datetime-local\">\n"
@@ -140,6 +144,7 @@ public class DashboardHtml {
             + "\n"
             // Alerts tab
             + "<div id=\"tab-alerts\" class=\"tab-content\">\n"
+            + "  <h3 style=\"margin-bottom:12px;color:#1B2A4A\">[ \ubc18\ucd9c\uc54c\ub9bc ]</h3>\n"
             + "  <div class=\"toolbar\">\n"
             + "    <label>시작:</label><input id=\"alert-from\" type=\"datetime-local\">\n"
             + "    <label>종료:</label><input id=\"alert-to\" type=\"datetime-local\">\n"

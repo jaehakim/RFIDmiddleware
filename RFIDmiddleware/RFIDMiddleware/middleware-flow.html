@@ -103,8 +103,8 @@ flowchart TD
     ALERT_DEDUP{"shouldAlert<br/>30초 내 중복?"}
     LIGHT_CHECK{"경광등 설정<br/>적용(1)?"}
     BUZZER_CHECK{"부저 설정<br/>적용(1)?"}
-    LIGHT_ON["경광등 ON<br/>(릴레이1 빨간등)<br/>5초 자동 소등"]
-    BUZZER_ON["부저 ON<br/>(릴레이2)<br/>5초 자동 OFF"]
+    LIGHT_ON["경광등 ON<br/>(릴레이1 빨간등)<br/>설정시간 자동 소등"]
+    BUZZER_ON["부저 ON<br/>(릴레이2)<br/>설정시간 자동 OFF"]
     ALERT_DB["export_alerts INSERT<br/>(단건 즉시 실행)"]
     LOG_ALERT["로그 기록<br/>UNAUTHORIZED EXPORT"]
 
@@ -198,14 +198,14 @@ flowchart LR
     subgraph BUZZER["부저 (릴레이2)"]
         BZ_CFG["readers.cfg<br/>부저=1/0"]
         BZ_RELAY["릴레이 2번<br/>ON/OFF"]
-        BZ_WHEN["미허가 반출 감지 시<br/>5초 자동 OFF"]
+        BZ_WHEN["미허가 반출 감지 시<br/>설정시간 자동 OFF"]
         BZ_CFG --> BZ_RELAY --> BZ_WHEN
     end
 
     subgraph LIGHT["경광등 (릴레이1)"]
         L_CFG["readers.cfg<br/>경광등=1/0"]
         L_RELAY["릴레이 1번<br/>빨간등 ON/OFF"]
-        L_WHEN["미허가 반출 감지 시<br/>5초 자동 소등"]
+        L_WHEN["미허가 반출 감지 시<br/>설정시간 자동 소등"]
         L_CFG --> L_RELAY --> L_WHEN
     end
 
@@ -268,7 +268,7 @@ flowchart LR
         direction TB
         ASSET_REFRESH["AssetRepository<br/>30초 주기 갱신<br/>━━━━━━━━━━━━<br/>assets → HashMap 캐시<br/>permissions → Set 캐시"]
         TAG_WRITER["TagDB-Writer 스레드<br/>━━━━━━━━━━━━<br/>BlockingQueue 폴링<br/>50건 or 500ms마다<br/>executeBatch()"]
-        WL_TIMER["WarningLight 타이머<br/>━━━━━━━━━━━━<br/>경광등: 5초 후 OFF<br/>부저: 5초 후 OFF<br/>재감지 시 리셋"]
+        WL_TIMER["WarningLight 타이머<br/>━━━━━━━━━━━━<br/>경광등(부저): 설정시간 후 OFF<br/>재감지 시 리셋<br/>설정: WARNING_DURATION"]
     end
 
     subgraph TCP["TCP 수신 스레드 (리더기별)"]

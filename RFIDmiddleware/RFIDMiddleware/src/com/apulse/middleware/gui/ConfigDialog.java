@@ -14,6 +14,7 @@ public class ConfigDialog extends JDialog {
     private final JTable table;
     private final JCheckBox applyAllCheck;
     private final JTextField maskField;
+    private final JTextField warningDurationField;
     private boolean confirmed = false;
 
     public ConfigDialog(Frame owner, List<ReaderConfig> configs) {
@@ -72,9 +73,28 @@ public class ConfigDialog extends JDialog {
         maskPanel.add(maskField);
         maskPanel.add(maskHint);
 
-        // Top: mask + table
+        // 경광등 알림 시간 패널 (별도 줄)
+        JPanel durationPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        durationPanel.setBorder(BorderFactory.createEmptyBorder(0, 4, 2, 4));
+        JLabel durationLabel = new JLabel("\uacbd\uad11\ub4f1(\ubd80\uc800) \uc54c\ub9bc \uc2dc\uac04(\ucd08):");
+        durationLabel.setFont(Theme.SECTION_LABEL);
+        warningDurationField = new JTextField(String.valueOf(ReaderConfig.getWarningDuration()), 5);
+        warningDurationField.setFont(Theme.BODY);
+        JLabel durationHint = new JLabel("(\uacbd\uad11\ub4f1/\ubd80\uc800 \uc790\ub3d9 OFF \uc2dc\uac04)");
+        durationHint.setFont(new Font("\ub9d1\uc740 \uace0\ub515", Font.PLAIN, 10));
+        durationHint.setForeground(Color.GRAY);
+        durationPanel.add(durationLabel);
+        durationPanel.add(warningDurationField);
+        durationPanel.add(durationHint);
+
+        // Top: mask + duration + table
+        JPanel globalSettingsPanel = new JPanel();
+        globalSettingsPanel.setLayout(new BoxLayout(globalSettingsPanel, BoxLayout.Y_AXIS));
+        globalSettingsPanel.add(maskPanel);
+        globalSettingsPanel.add(durationPanel);
+
         JPanel topPanel = new JPanel(new BorderLayout());
-        topPanel.add(maskPanel, BorderLayout.NORTH);
+        topPanel.add(globalSettingsPanel, BorderLayout.NORTH);
         JScrollPane scrollPane = new JScrollPane(table);
         topPanel.add(scrollPane, BorderLayout.CENTER);
         add(topPanel, BorderLayout.CENTER);
@@ -137,6 +157,10 @@ public class ConfigDialog extends JDialog {
                 table.getCellEditor().stopCellEditing();
             }
             ReaderConfig.setEpcMask(maskField.getText().trim());
+            try {
+                int dur = Integer.parseInt(warningDurationField.getText().trim());
+                ReaderConfig.setWarningDuration(dur);
+            } catch (NumberFormatException ignored) {}
             confirmed = true;
             setVisible(false);
         });

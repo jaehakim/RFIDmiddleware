@@ -14,6 +14,12 @@ public class ReaderConfig {
     public static String getEpcMask() { return epcMask; }
     public static void setEpcMask(String mask) { epcMask = (mask != null) ? mask.trim() : ""; }
 
+    /** 경광등/부저 자동 OFF 시간 (초). 기본 5초 */
+    private static int warningDuration = 5;
+
+    public static int getWarningDuration() { return warningDuration; }
+    public static void setWarningDuration(int seconds) { warningDuration = (seconds > 0) ? seconds : 5; }
+
     private String name;
     private String ip;
     private int port;
@@ -75,6 +81,15 @@ public class ReaderConfig {
                 if (line.isEmpty() || line.startsWith("#")) continue;
                 if (line.startsWith("MASK=")) {
                     epcMask = line.substring(5).trim();
+                    continue;
+                }
+                if (line.startsWith("WARNING_DURATION=")) {
+                    try {
+                        int val = Integer.parseInt(line.substring(17).trim());
+                        warningDuration = (val > 0) ? val : 5;
+                    } catch (NumberFormatException e) {
+                        warningDuration = 5;
+                    }
                     continue;
                 }
                 String[] parts = line.split(",");
@@ -139,6 +154,7 @@ public class ReaderConfig {
                 new OutputStreamWriter(new FileOutputStream(filePath), StandardCharsets.UTF_8))) {
             writer.println("# 리더기 설정 파일 (이름,IP,Port,부저,경광등,출력1,출력2,출력3,출력4,드웰시간,비프음)");
             writer.println("MASK=" + epcMask);
+            writer.println("WARNING_DURATION=" + warningDuration);
             for (ReaderConfig cfg : configs) {
                 writer.printf("%s,%s,%d,%s,%s,%d,%d,%d,%d,%d,%s%n",
                     cfg.getName(), cfg.getIp(), cfg.getPort(),

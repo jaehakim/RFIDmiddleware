@@ -242,7 +242,6 @@ public class ReaderIconComponent extends JPanel {
         int w = getWidth();
         int h = getHeight();
         int r = Theme.CARD_ROUND;
-        int barW = Theme.CARD_BAR_W;
 
         Color statusColor = status.getColor();
 
@@ -258,29 +257,11 @@ public class ReaderIconComponent extends JPanel {
         g2.setColor(Theme.CARD_BORDER);
         g2.drawRoundRect(0, 0, w - 2, h - 2, r, r);
 
-        // Left status bar
-        g2.setClip(new java.awt.geom.RoundRectangle2D.Float(0, 0, w - 2, h - 2, r, r));
-        g2.setColor(statusColor);
-        g2.fillRect(0, 0, barW, h);
-        g2.setClip(null);
-
-        int textLeft = barW + 5;
-
-        // Row 1: reader name (top, compact font)
-        g2.setColor(Theme.CARD_TEXT);
-        g2.setFont(new Font("\ub9d1\uc740 \uace0\ub515", Font.BOLD, 9));
-        FontMetrics fm = g2.getFontMetrics();
-        g2.drawString(readerName, textLeft, fm.getAscent() + 2);
-
-        // Row 2: status circle (compact, centered below name)
-        int circleD = 18;
-        int nameBottom = fm.getAscent() + 2 + fm.getDescent();
-        int availTop = nameBottom + 1;
-        int availBottom = h - 3;
-        int circleCY = (availTop + availBottom) / 2;
-        int contentLeft = textLeft;
-        int contentRight = w - 22;
-        int circleCX = (contentLeft + contentRight) / 2;
+        // Status circle (centered in card, excluding indicator area)
+        int circleD = 32;
+        int contentRight = w - 16;
+        int circleCX = contentRight / 2;
+        int circleCY = h / 2;
         int circleX = circleCX - circleD / 2;
         int circleY = circleCY - circleD / 2;
 
@@ -307,55 +288,105 @@ public class ReaderIconComponent extends JPanel {
         g2.setColor(new Color(255, 255, 255, 60));
         g2.fillOval(circleX + 2, circleY + 2, circleD / 2, circleD / 2 - 1);
 
+        // Reader index number inside circle
+        g2.setColor(Color.WHITE);
+        g2.setFont(new Font("\ub9d1\uc740 \uace0\ub515", Font.BOLD, 11));
+        String indexStr = String.valueOf(readerIndex + 1);
+        FontMetrics fm = g2.getFontMetrics();
+        int textX = circleCX - fm.stringWidth(indexStr) / 2;
+        int textY = circleCY + fm.getAscent() / 2 - 1;
+        g2.drawString(indexStr, textX, textY);
+
         // 3 indicators: beep / light / buzzer (vertical, right side, compact)
-        int indSize = 7;
+        int indSize = 9;
         int indGap = 2;
         int totalInd = indSize * 3 + indGap * 2;
         int indX = w - indSize - 6;
         int indStartY = (h - totalInd) / 2;
 
-        // 1) beep
+        // 1) beep - speaker icon
         Color beepColor = new Color(0x2E, 0xCC, 0x71);
         boolean beepActive = beepEnabled && status == ReaderStatus.READING;
-        drawIndicator(g2, indX, indStartY, indSize, beepEnabled, beepActive, beepColor);
+        drawBeepIcon(g2, indX, indStartY, indSize, beepEnabled, beepActive, beepColor);
 
-        // 2) light
+        // 2) light - warning light icon
         int lightIY = indStartY + indSize + indGap;
-        drawIndicator(g2, indX, lightIY, indSize, lightConfigEnabled, lightOn, Theme.INDICATOR_LIGHT_ON);
+        drawLightIcon(g2, indX, lightIY, indSize, lightConfigEnabled, lightOn, Theme.INDICATOR_LIGHT_ON);
 
-        // 3) buzzer
+        // 3) buzzer - bell icon
         int buzzerIY = lightIY + indSize + indGap;
-        drawIndicator(g2, indX, buzzerIY, indSize, buzzerConfigEnabled, buzzerOn, Theme.INDICATOR_BUZZER_ON);
+        drawBellIcon(g2, indX, buzzerIY, indSize, buzzerConfigEnabled, buzzerOn, Theme.INDICATOR_BUZZER_ON);
 
         g2.dispose();
     }
 
-    /**
-     * Draw a single indicator shape.
-     * configOn=false → gray square outline
-     * configOn=true, active=false → colored circle
-     * configOn=true, active=true → colored circle with blink
-     */
-    private void drawIndicator(Graphics2D g2, int x, int y, int size, boolean configOn, boolean active, Color color) {
-        if (!configOn) {
-            // Gray square outline
-            g2.setColor(Theme.INDICATOR_OFF);
-            g2.setStroke(new BasicStroke(1.0f));
-            g2.drawRect(x, y, size, size);
-        } else if (active) {
-            // Blinking colored circle
-            if (blinkOn) {
-                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 40));
-                g2.fillOval(x - 2, y - 2, size + 4, size + 4);
-                g2.setColor(color);
-            } else {
-                g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 80));
-            }
-            g2.fillOval(x, y, size, size);
-        } else {
-            // Colored circle (static)
-            g2.setColor(color);
-            g2.fillOval(x, y, size, size);
+    private Color getDrawColor(boolean configOn, boolean active, Color color) {
+        if (!configOn) return Theme.INDICATOR_OFF;
+        if (active) {
+            return blinkOn ? color : new Color(color.getRed(), color.getGreen(), color.getBlue(), 80);
         }
+        return color;
+    }
+
+    private void drawGlow(Graphics2D g2, int cx, int cy, int size, Color color) {
+        g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 40));
+        g2.fillOval(cx - size / 2 - 2, cy - size / 2 - 2, size + 4, size + 4);
+    }
+
+    /** Speaker icon for beep */
+    private void drawBeepIcon(Graphics2D g2, int x, int y, int s, boolean configOn, boolean active, Color color) {
+        Color c = getDrawColor(configOn, active, color);
+        if (active && blinkOn) drawGlow(g2, x + s / 2, y + s / 2, s, color);
+        g2.setColor(c);
+        g2.setStroke(new BasicStroke(1.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        // Speaker body
+        int bx = x + 1, by = y + s / 2 - 2;
+        g2.fillRect(bx, by, 3, 4);
+        // Speaker cone
+        int[] cxs = {bx + 3, bx + s - 3, bx + s - 3, bx + 3};
+        int[] cys = {by, y, y + s - 1, by + 4};
+        g2.fillPolygon(cxs, cys, 4);
+        // Sound waves
+        if (configOn) {
+            g2.drawArc(x + s - 4, y + 1, 4, s - 2, -45, 90);
+        }
+    }
+
+    /** Warning light / beacon icon */
+    private void drawLightIcon(Graphics2D g2, int x, int y, int s, boolean configOn, boolean active, Color color) {
+        Color c = getDrawColor(configOn, active, color);
+        if (active && blinkOn) drawGlow(g2, x + s / 2, y + s / 2, s, color);
+        g2.setColor(c);
+        g2.setStroke(new BasicStroke(1.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int cx = x + s / 2;
+        // Light dome (triangle top)
+        int[] txs = {cx, x + s - 1, x + 1};
+        int[] tys = {y + 1, y + s - 3, y + s - 3};
+        g2.fillPolygon(txs, tys, 3);
+        // Base bar
+        g2.fillRect(x + 1, y + s - 2, s - 2, 2);
+        // Rays when active
+        if (configOn) {
+            g2.drawLine(cx, y - 1, cx, y);
+            g2.drawLine(x - 1, y + s / 2 - 1, x, y + s / 2 - 1);
+            g2.drawLine(x + s - 1, y + s / 2 - 1, x + s, y + s / 2 - 1);
+        }
+    }
+
+    /** Bell icon for buzzer */
+    private void drawBellIcon(Graphics2D g2, int x, int y, int s, boolean configOn, boolean active, Color color) {
+        Color c = getDrawColor(configOn, active, color);
+        if (active && blinkOn) drawGlow(g2, x + s / 2, y + s / 2, s, color);
+        g2.setColor(c);
+        g2.setStroke(new BasicStroke(1.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int cx = x + s / 2;
+        // Bell dome
+        g2.fillArc(x + 1, y + 1, s - 2, s - 2, 0, 180);
+        // Bell body
+        g2.fillRect(x + 1, y + s / 2, s - 2, s / 2 - 2);
+        // Bell rim
+        g2.fillRect(x, y + s - 3, s, 2);
+        // Clapper
+        g2.fillOval(cx - 1, y + s - 2, 2, 2);
     }
 }

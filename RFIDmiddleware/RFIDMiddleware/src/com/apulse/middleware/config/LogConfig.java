@@ -14,6 +14,11 @@ public class LogConfig {
     private int maxCount = 5;
     private boolean consoleEnabled = true;
 
+    private boolean uiFileEnabled = true;
+    private String uiFilePath = "logs/ui.log";
+    private int uiMaxSizeMB = 10;
+    private int uiMaxCount = 5;
+
     public LogConfig() {
         load();
     }
@@ -34,6 +39,10 @@ public class LogConfig {
             maxSizeMB = Integer.parseInt(props.getProperty("log.file.max.size", String.valueOf(maxSizeMB)));
             maxCount = Integer.parseInt(props.getProperty("log.file.max.count", String.valueOf(maxCount)));
             consoleEnabled = Boolean.parseBoolean(props.getProperty("log.console.enabled", String.valueOf(consoleEnabled)));
+            uiFileEnabled = Boolean.parseBoolean(props.getProperty("log.ui.file.enabled", String.valueOf(uiFileEnabled)));
+            uiFilePath = props.getProperty("log.ui.file.path", uiFilePath).trim();
+            uiMaxSizeMB = Integer.parseInt(props.getProperty("log.ui.file.max.size", String.valueOf(uiMaxSizeMB)));
+            uiMaxCount = Integer.parseInt(props.getProperty("log.ui.file.max.count", String.valueOf(uiMaxCount)));
             System.out.println("[LogConfig] Loaded from " + CONFIG_FILE);
         } catch (Exception e) {
             System.out.println("[LogConfig] Error loading config: " + e.getMessage() + " (using defaults)");
@@ -46,4 +55,9 @@ public class LogConfig {
     public int getMaxSizeMB() { return maxSizeMB; }
     public int getMaxCount() { return maxCount; }
     public boolean isConsoleEnabled() { return consoleEnabled; }
+
+    public boolean isUiFileEnabled() { return uiFileEnabled; }
+    public String getUiFilePath() { return uiFilePath; }
+    public int getUiMaxSizeMB() { return uiMaxSizeMB; }
+    public int getUiMaxCount() { return uiMaxCount; }
 }

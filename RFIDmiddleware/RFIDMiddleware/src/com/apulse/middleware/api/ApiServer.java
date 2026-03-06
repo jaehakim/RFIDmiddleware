@@ -541,7 +541,8 @@ public class ApiServer {
                         .append("\"epc\":").append(toJsonString(row[2])).append(",")
                         .append("\"assetNumber\":").append(toJsonString(row[3])).append(",")
                         .append("\"assetName\":").append(toJsonString(row[4])).append(",")
-                        .append("\"rssi\":").append(row[5])
+                        .append("\"department\":").append(toJsonString(row[5])).append(",")
+                        .append("\"rssi\":").append(row[6])
                         .append("}");
                 }
                 sb.append("]");

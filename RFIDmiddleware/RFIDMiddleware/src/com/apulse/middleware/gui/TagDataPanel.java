@@ -50,8 +50,44 @@ public class TagDataPanel extends JPanel {
         setOpaque(true);
         setBackground(Theme.CONTENT_BG);
 
-        // Section label instead of TitledBorder
-        add(Theme.createSectionLabel("[ \ud0dc\uadf8 \ub370\uc774\ud130 ]"), BorderLayout.NORTH);
+        // Section label with help button
+        add(Theme.createSectionHeader("[ \ud0dc\uadf8 \ub370\uc774\ud130 ]",
+            "\ud0dc\uadf8 \ub370\uc774\ud130 - \ub3c4\uc6c0\ub9d0",
+            "\u25a0 \ud0dc\uadf8 \ub370\uc774\ud130 \ud328\ub110\n\n"
+            + "RFID \ub9ac\ub354\uae30\uc5d0\uc11c \uac10\uc9c0\ub41c \ud0dc\uadf8 \uc815\ubcf4\ub97c \uc2e4\uc2dc\uac04\uc73c\ub85c \ud45c\uc2dc\ud569\ub2c8\ub2e4.\n\n"
+            + "\u25b6 \ud14c\uc774\ube14 \ucee8\ub7fc\n"
+            + "  \u2022 \uc2dc\uac04: \ub9c8\uc9c0\ub9c9 \ud0dc\uadf8 \uc77d\uae30 \uc2dc\uac01\n"
+            + "  \u2022 \ub9ac\ub354\uae30: \ud0dc\uadf8\ub97c \uc77d\uc740 \ub9ac\ub354\uae30\uba85\n"
+            + "  \u2022 EPC: \ud0dc\uadf8 \uace0\uc720 \uc2dd\ubcc4\ucf54\ub4dc (HEX)\n"
+            + "  \u2022 RSSI: \uc218\uc2e0 \uc2e0\ud638 \uac15\ub3c4 (dBm, \uac12\uc774 \ud074\uc218\ub85d \uac15\ud568)\n"
+            + "  \u2022 \uc548\ud14c\ub098: \ud0dc\uadf8\ub97c \uac10\uc9c0\ud55c \uc548\ud14c\ub098 \ubc88\ud638\n"
+            + "  \u2022 \ud69f\uc218: \uc911\ubcf5\uc81c\uac70 \ubaa8\ub4dc\uc5d0\uc11c \ub3d9\uc77c EPC \uc77d\uae30 \ud69f\uc218\n"
+            + "  \u2022 \uc790\uc0b0\ubc88\ud638/\uc790\uc0b0\uba85/\ubd80\uc11c: DB \uc790\uc0b0 \ub9e4\uce6d \uc815\ubcf4\n"
+            + "  \u2022 \uc0c1\ud0dc: \ubc18\ucd9c\ud5c8\uc6a9/\ubc18\ucd9c\uc54c\ub9bc \ud45c\uc2dc\n\n"
+            + "\u25b6 \ud589 \uc0c9\uc0c1\n"
+            + "  \u2022 \ube68\uac04 \ubc30\uacbd: \ubbf8\ud5c8\uac00 \ubc18\ucd9c \uac10\uc9c0 (\uc790\uc0b0\uc774\uc9c0\ub9cc \ubc18\ucd9c\ud5c8\uc6a9 \uc5c6\uc74c)\n"
+            + "  \u2022 \ucd08\ub85d \ubc30\uacbd: \ubc18\ucd9c\ud5c8\uc6a9\ub41c \uc790\uc0b0 (\uc815\uc0c1 \ubc18\ucd9c)\n"
+            + "  \u2022 \ud770\uc0c9/\ud68c\uc0c9 \ubc88\uac08\uc544: \uc77c\ubc18 \ud0dc\uadf8\n\n"
+            + "\u25b6 \ud558\ub2e8 \ubc84\ud2bc\n"
+            + "  \u2022 \uc911\ubcf5\uc81c\uac70: \ub3d9\uc77c EPC \ud0dc\uadf8 \ubcd1\ud569 \ud45c\uc2dc (ON/OFF)\n"
+            + "  \u2022 \ucd08\uae30\ud654: \ud14c\uc774\ube14 \ub370\uc774\ud130 \uc804\uccb4 \uc0ad\uc81c\n"
+            + "  \u2022 \uc5d1\uc140 \uc800\uc7a5: \ud604\uc7ac \ub370\uc774\ud130\ub97c .xls \ud30c\uc77c\ub85c \ub0b4\ubcf4\ub0b4\uae30\n"
+            + "  \u2022 DB \uc870\ud68c: \uae30\uac04\ubcc4 tag_reads \ud14c\uc774\ube14 \uc870\ud68c\n\n"
+            + "\u25b6 \ud654\uba74 \ud45c\uc2dc vs DB \uc800\uc7a5\n"
+            + "  \u2022 \ud654\uba74 \uadf8\ub9ac\ub4dc: \ud0dc\uadf8 \uac10\uc9c0 \uc989\uc2dc \uc2e4\uc2dc\uac04 \ud45c\uc2dc\n"
+            + "  \u2022 DB \uc800\uc7a5: \uc989\uc2dc \uc800\uc7a5\uc774 \uc544\ub2cc \ubaa8\uc544\uc11c \ubc30\uce58 \uc800\uc7a5\n\n"
+            + "\u25b6 DB \uc800\uc7a5 \uaddc\uce59 (tag_reads \ud14c\uc774\ube14)\n"
+            + "  1) \ud0dc\uadf8 \uac10\uc9c0 \uc2dc Caffeine \uce90\uc2dc\ub85c \uc911\ubcf5 \uccb4\ud06c\n"
+            + "     - \ub3d9\uc77c EPC\uac00 TTL(\uae30\ubcf8 30\ucd08) \uc774\ub0b4 \uc7ac\uac10\uc9c0\n"
+            + "       \u2192 \ud654\uba74\uc5d0\ub9cc \uc5c5\ub370\uc774\ud2b8, DB \uc800\uc7a5 \uc548 \ud568\n"
+            + "     - TTL \ub9cc\ub8cc \ud6c4 \ub3d9\uc77c EPC \uc7ac\uac10\uc9c0\n"
+            + "       \u2192 \uc2e0\uaddc \ub370\uc774\ud130\ub85c DB INSERT\n"
+            + "  2) \uc2e0\uaddc \ud0dc\uadf8\ub9cc BlockingQueue\uc5d0 \ub123\uc74c (\uc989\uc2dc DB \uc4f0\uae30 \uc544\ub2d8)\n"
+            + "  3) TagDB-Writer \ubc31\uadf8\ub77c\uc6b4\ub4dc \uc2a4\ub808\ub4dc\uac00 \ubc30\uce58 \ucc98\ub9ac\n"
+            + "     - 50\uac74 \ubaa8\uc774\uac70\ub098 500ms \uacbd\uacfc \uc2dc executeBatch()\n"
+            + "  4) \uc800\uc7a5 \ucee8\ub7fc: EPC, \ub9ac\ub354\uae30\uba85, RSSI, \uc548\ud14c\ub098, \uc77d\uae30\uc2dc\uac01\n"
+            + "  5) \uc885\ub8cc \uc2dc \ub300\uae30 \uc911\uc778 \ub370\uc774\ud130 \uc790\ub3d9 flush"
+        ), BorderLayout.NORTH);
 
         dbDedupCache = Caffeine.newBuilder()
             .expireAfterWrite(cacheTtlSeconds, TimeUnit.SECONDS)
@@ -269,8 +305,8 @@ public class TagDataPanel extends JPanel {
     private void exportToExcel() {
         List<TagData> data = getCurrentData();
         if (data.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "No tag data to export.",
-                "Info", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "\ub0b4\ubcf4\ub0bc \ud0dc\uadf8 \ub370\uc774\ud130\uac00 \uc5c6\uc2b5\ub2c8\ub2e4.",
+                "\uc54c\ub9bc", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
 
@@ -323,13 +359,13 @@ public class TagDataPanel extends JPanel {
             pw.println("</body></html>");
 
             JOptionPane.showMessageDialog(this,
-                "Saved: " + file.getAbsolutePath() + "\n(" + data.size() + " rows)",
-                "Excel Export", JOptionPane.INFORMATION_MESSAGE);
+                "\uc800\uc7a5 \uc644\ub8cc: " + file.getAbsolutePath() + "\n(" + data.size() + "\uac74)",
+                "\uc5d1\uc140 \uc800\uc7a5", JOptionPane.INFORMATION_MESSAGE);
 
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this,
-                "Export failed: " + ex.getMessage(),
-                "Error", JOptionPane.ERROR_MESSAGE);
+                "\uc800\uc7a5 \uc2e4\ud328: " + ex.getMessage(),
+                "\uc624\ub958", JOptionPane.ERROR_MESSAGE);
         }
     }
 

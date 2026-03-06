@@ -320,7 +320,7 @@ public class AssetRepository {
         if (conn == null) return results;
 
         String sql = "SELECT ea.alert_time, ea.reader_name, ea.epc, ea.asset_number, "
-            + "a.asset_name, ea.rssi "
+            + "a.asset_name, a.department, ea.rssi "
             + "FROM export_alerts ea LEFT JOIN assets a ON ea.epc = a.epc "
             + "WHERE ea.alert_time BETWEEN ? AND ? ORDER BY ea.alert_time DESC";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -336,6 +336,7 @@ public class AssetRepository {
                         rs.getString("epc"),
                         rs.getString("asset_number") != null ? rs.getString("asset_number") : "",
                         rs.getString("asset_name") != null ? rs.getString("asset_name") : "",
+                        rs.getString("department") != null ? rs.getString("department") : "",
                         String.valueOf(rs.getInt("rssi"))
                     });
                 }

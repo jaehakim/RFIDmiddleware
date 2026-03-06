@@ -21,8 +21,29 @@ public class ReaderStatusPanel extends JPanel {
         setOpaque(true);
         setBackground(Theme.CONTENT_BG);
 
-        // Section label instead of TitledBorder
-        add(Theme.createSectionLabel("[ \ub9ac\ub354\uae30 \uc0c1\ud0dc ]"), BorderLayout.NORTH);
+        // Section label with help button
+        add(Theme.createSectionHeader("[ \ub9ac\ub354\uae30 \uc0c1\ud0dc ]",
+            "\ub9ac\ub354\uae30 \uc0c1\ud0dc - \ub3c4\uc6c0\ub9d0",
+            "\u25a0 \ub9ac\ub354\uae30 \uc0c1\ud0dc \ud328\ub110\n\n"
+            + "\uac01 RFID \ub9ac\ub354\uae30\uc758 \ud604\uc7ac \uc0c1\ud0dc\ub97c \uce74\ub4dc \ud615\ud0dc\ub85c \ud45c\uc2dc\ud569\ub2c8\ub2e4.\n\n"
+            + "\u25b6 \uc0c1\ud0dc \uc0c9\uc0c1\n"
+            + "  \u2022 \ud68c\uc0c9: \ubbf8\uc5f0\uacb0 \uc0c1\ud0dc\n"
+            + "  \u2022 \ucd08\ub85d: \uc5f0\uacb0\ub428 (\ub300\uae30 \uc911)\n"
+            + "  \u2022 \ud30c\ub780: \uc778\ubca4\ud1a0\ub9ac \uc9c4\ud589 \uc911 (\ud0dc\uadf8 \uc77d\uae30 \ud65c\uc131)\n"
+            + "  \u2022 \ube68\uac04: \uc5f0\uacb0 \uc624\ub958\n\n"
+            + "\u25b6 \uc778\ub514\ucf00\uc774\ud130 \uc544\uc774\ucf58 (\uce74\ub4dc \uc6b0\uce21 \uc138\ub85c \ubc30\uce58)\n"
+            + "  \u2022 \ud83d\udd0a \uc2a4\ud53c\ucee4 (\ube44\ud504\uc74c): \ub9ac\ub354\uae30 \ub0b4\uc7a5 \ube44\ud504\uc74c ON/OFF [\ucd08\ub85d]\n"
+            + "  \u2022 \ud83d\udea8 \uacbd\uad11\ub4f1 (\uacbd\uad11\ub4f1): \ubbf8\ud5c8\uac00 \ubc18\ucd9c \uc2dc \uacbd\uad11\ub4f1 ON/OFF [\uc8fc\ud669]\n"
+            + "  \u2022 \ud83d\udd14 \ubca8 (\ubd80\uc800): \ubbf8\ud5c8\uac00 \ubc18\ucd9c \uc2dc \ubd80\uc800 ON/OFF [\ud30c\ub791]\n"
+            + "  \u2022 \ud68c\uc0c9 \uc544\uc774\ucf58: \ud574\ub2f9 \uae30\ub2a5 OFF \uc0c1\ud0dc\n"
+            + "  \u2022 \uceec\ub7ec \uc544\uc774\ucf58: \ud574\ub2f9 \uae30\ub2a5 ON (\ub300\uae30)\n"
+            + "  \u2022 \uceec\ub7ec + \uae5c\ube61\uc784: \ud65c\uc131 \ub3d9\uc791 \uc911\n\n"
+            + "\u25b6 \uce74\ub4dc \uc6b0\ud074\ub9ad \uba54\ub274\n"
+            + "  \u2022 \uc5f0\uacb0/\ud574\uc81c: \uac1c\ubcc4 \ub9ac\ub354\uae30 TCP \uc5f0\uacb0 \uc81c\uc5b4\n"
+            + "  \u2022 \uc778\ubca4\ud1a0\ub9ac \uc2dc\uc791/\uc911\uc9c0: \ud0dc\uadf8 \uc77d\uae30 \uc81c\uc5b4\n"
+            + "  \u2022 \uacbd\uad11\ub4f1/\ubd80\uc800 ON/OFF: \uc218\ub3d9 \uc81c\uc5b4\n"
+            + "  \u2022 \uc548\ud14c\ub098 \uc124\uc815: \ucd9c\ub825/\ub4dc\uc6f0\ud0c0\uc784 \uc124\uc815"
+        ), BorderLayout.NORTH);
 
         iconContainer = new JPanel(new WrapFlowLayout(FlowLayout.LEFT, Theme.CARD_GAP, Theme.CARD_GAP));
         iconContainer.setOpaque(true);

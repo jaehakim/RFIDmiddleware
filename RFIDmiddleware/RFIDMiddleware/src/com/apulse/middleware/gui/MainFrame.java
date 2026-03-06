@@ -2,6 +2,7 @@ package com.apulse.middleware.gui;
 
 import com.apulse.middleware.api.ApiServer;
 import com.apulse.middleware.config.DatabaseConfig;
+import com.apulse.middleware.config.LogConfig;
 import com.apulse.middleware.config.ReaderConfig;
 import com.apulse.middleware.db.AssetRepository;
 import com.apulse.middleware.db.DatabaseManager;
@@ -54,6 +55,7 @@ public class MainFrame extends JFrame {
         statusPanel = new ReaderStatusPanel();
         tagDataPanel = new TagDataPanel(dbConfig.getCacheTtlSeconds(), dbConfig.getCacheMaxSize());
         logPanel = new LogPanel();
+        logPanel.initFileLogging(new LogConfig());
 
         initLayout();
         loadConfig();
@@ -297,12 +299,23 @@ public class MainFrame extends JFrame {
                     assetNumber, assetName, department, finalStatus);
                 if (isNew) {
                     String readTime = HexUtils.nowShort();
+                    String readerName = connection.getConfig().getName();
                     TagRepository.getInstance().insertTagRead(
-                        epc, connection.getConfig().getName(),
-                        rssi, antenna, readTime);
+                        epc, readerName, rssi, antenna, readTime);
                     TagRepository.getInstance().addRecentTag(
-                        readTime, connection.getConfig().getName(), epc, rssi, antenna,
+                        readTime, readerName, epc, rssi, antenna,
                         assetNumber, assetName, department, finalStatus);
+
+                    if (assetNumber != null) {
+                        logPanel.appendLog(readerName,
+                            "ASSET READ: EPC=" + epc
+                            + ", 자산번호=" + assetNumber
+                            + ", 자산명=" + (assetName != null ? assetName : "")
+                            + ", 부서=" + (department != null ? department : ""));
+                    } else {
+                        logPanel.appendLog(readerName,
+                            "TAG READ: EPC=" + epc + ", RSSI=" + rssi + ", ANT=" + antenna);
+                    }
                 }
 
                 if (unauthorizedAsset != null && AssetRepository.getInstance().shouldAlert(epc)) {
@@ -311,10 +324,16 @@ public class MainFrame extends JFrame {
 
                     if (connection.getConfig().isWarningLightEnabled()) {
                         WarningLightController.getInstance().triggerWarningLight(connection);
+                        logPanel.appendLog(readerName,
+                            "WARNING LIGHT ON: EPC=" + epc
+                            + ", 자산번호=" + unauthorizedAsset.getAssetNumber());
                     }
 
                     if (connection.getConfig().isBuzzerEnabled()) {
                         WarningLightController.getInstance().triggerBuzzer(connection);
+                        logPanel.appendLog(readerName,
+                            "BUZZER ON: EPC=" + epc
+                            + ", 자산번호=" + unauthorizedAsset.getAssetNumber());
                     }
 
                     AssetRepository.getInstance().insertAlert(
@@ -372,26 +391,27 @@ public class MainFrame extends JFrame {
 
             + "<h3>\uc544\uc774\ucf58 \ud45c\uc2dc</h3>"
             + "<table cellpadding='4' cellspacing='0' border='0'>"
-            + "<tr><td>\uc88c\uce21 \uc0c9\uc0c1 \ubc14</td><td>\ud604\uc7ac \ub9ac\ub354\uae30 \uc0c1\ud0dc\ub97c \uc0c9\uc0c1\uc73c\ub85c \ud45c\uc2dc</td></tr>"
+            + "<tr><td><b>\uc6d0\ud615 \uc544\uc774\ucf58</b></td><td>\uc0c1\ud0dc \uc0c9\uc0c1\uc73c\ub85c \ud45c\uc2dc, \ub0b4\ubd80\uc5d0 \ub9ac\ub354\uae30 \uc21c\ubc88 \ud45c\uc2dc</td></tr>"
+            + "<tr><td><b>\ud234\ud301</b></td><td>\ub9c8\uc6b0\uc2a4 \ud638\ubc84 \uc2dc \ub9ac\ub354\uae30\uba85 (IP:Port) \ud45c\uc2dc</td></tr>"
             + "</table>"
 
-            + "<h3>\uc778\ub514\ucf00\uc774\ud130 (\uc6b0\uce21 3\uac1c)</h3>"
+            + "<h3>\uc778\ub514\ucf00\uc774\ud130 (\uce74\ub4dc \uc6b0\uce21 \uc138\ub85c \ubc30\uce58)</h3>"
             + "<p style='font-size:11px; margin:2px 0 4px 0;'>\uc704\uc5d0\uc11c \uc544\ub798\ub85c: \ube44\ud504\uc74c / \uacbd\uad11\ub4f1 / \ubd80\uc800</p>"
             + "<table cellpadding='4' cellspacing='0' border='1' style='border-collapse:collapse;'>"
-            + "<tr style='background:#E8E8E8;'><th>\ubaa8\uc591</th><th>\uc0c1\ud0dc</th><th>\uc124\uba85</th></tr>"
-            + "<tr><td style='color:#C8CCD4;'><b>&#9633;</b> \ud68c\uc0c9 \ud14c\ub450\ub9ac \uc0ac\uac01\ud615</td>"
+            + "<tr style='background:#E8E8E8;'><th>\uc544\uc774\ucf58</th><th>\uc0c1\ud0dc</th><th>\uc124\uba85</th></tr>"
+            + "<tr><td style='color:#C8CCD4;'>\ud68c\uc0c9 \uc544\uc774\ucf58</td>"
             +     "<td><b>\ubbf8\uc0ac\uc6a9</b></td><td>\uc124\uc815\uc5d0\uc11c \uae30\ub2a5 OFF</td></tr>"
-            + "<tr><td><b style='color:#2ECC71;'>&#9679;</b> / <b style='color:#1E96DC;'>&#9679;</b> / <b style='color:#FFB400;'>&#9679;</b> \uceec\ub7ec \uc6d0\ud615</td>"
+            + "<tr><td>\uceec\ub7ec \uc544\uc774\ucf58</td>"
             +     "<td><b>\uc0ac\uc6a9</b></td><td>\uc124\uc815\uc5d0\uc11c \uae30\ub2a5 ON (\ub300\uae30 \uc911)</td></tr>"
-            + "<tr><td><b style='color:#2ECC71;'>&#10687;</b> / <b style='color:#1E96DC;'>&#10687;</b> / <b style='color:#FFB400;'>&#10687;</b> \uae5c\ubc15\uc784</td>"
+            + "<tr><td>\uceec\ub7ec \uc544\uc774\ucf58 + \uae5c\ubc15\uc784 \uae00\ub85c\uc6b0</td>"
             +     "<td><b>\ud65c\uc131\ud654</b></td><td>\uc774\ubca4\ud2b8 \ubc1c\uc0dd \uc911 (\uc2e4\uc81c \ub3d9\uc791 \uc911)</td></tr>"
             + "</table>"
             + "<table cellpadding='3' cellspacing='0' border='0' style='margin-top:4px;'>"
-            + "<tr><td><b style='color:#2ECC71;'>&#9679;</b> \ube44\ud504\uc74c</td>"
+            + "<tr><td><b style='color:#2ECC71;'>&#128266;</b> \uc2a4\ud53c\ucee4 (\ube44\ud504\uc74c)</td>"
             +     "<td>\ub179\uc0c9 &mdash; \uc778\ubca4\ud1a0\ub9ac(\uc77d\uae30 \uc911) \uc0c1\ud0dc\uc5d0\uc11c \ud65c\uc131\ud654</td></tr>"
-            + "<tr><td><b style='color:#FFB400;'>&#9679;</b> \uacbd\uad11\ub4f1</td>"
+            + "<tr><td><b style='color:#FFB400;'>&#128680;</b> \uacbd\uad11\ub4f1 (\uacbd\uad11\ub4f1)</td>"
             +     "<td>\uc8fc\ud669\uc0c9 &mdash; \ubc18\ucd9c\uc54c\ub9bc \uc2dc \ub9b4\ub808\uc774 ON\uc73c\ub85c \ud65c\uc131\ud654</td></tr>"
-            + "<tr><td><b style='color:#1E96DC;'>&#9679;</b> \ubd80\uc800</td>"
+            + "<tr><td><b style='color:#1E96DC;'>&#128276;</b> \ubca8 (\ubd80\uc800)</td>"
             +     "<td>\ud30c\ub780\uc0c9 &mdash; \ubc18\ucd9c\uc54c\ub9bc \uc2dc \ub9b4\ub808\uc774 ON\uc73c\ub85c \ud65c\uc131\ud654</td></tr>"
             + "</table>"
 
@@ -540,12 +560,35 @@ public class MainFrame extends JFrame {
             + "</table>"
 
             + "<h2 style='border-bottom:2px solid #336; padding-bottom:4px; margin-top:14px;'>[ \ub85c\uadf8 ]</h2>"
-            + "<p>\ub9ac\ub354\uae30 \uc5f0\uacb0, \uba85\ub839 \uc804\uc1a1, \uc624\ub958 \ub4f1 \ubbf8\ub4e4\uc6e8\uc5b4\uc758 \ubaa8\ub4e0 \ub3d9\uc791 \uc774\ub825\uc744 \ud45c\uc2dc\ud569\ub2c8\ub2e4.</p>"
+            + "<p>\ub9ac\ub354\uae30 \uc5f0\uacb0, \ud0dc\uadf8 \ub9ac\ub529, \ubc18\ucd9c\uc54c\ub9bc \ub4f1 \ubbf8\ub4e4\uc6e8\uc5b4\uc758 \ubaa8\ub4e0 \ub3d9\uc791 \uc774\ub825\uc744 \ud45c\uc2dc\ud569\ub2c8\ub2e4.</p>"
+
+            + "<h3>\ub85c\uadf8 \uc720\ud615</h3>"
+            + "<table cellpadding='3' cellspacing='0' border='1' style='border-collapse:collapse;'>"
+            + "<tr style='background:#E8E8E8;'><th>\ub85c\uadf8</th><th>\uc124\uba85</th></tr>"
+            + "<tr><td><b>TAG READ</b></td><td>\uc77c\ubc18 \ud0dc\uadf8 \ub9ac\ub529 (EPC, RSSI, \uc548\ud14c\ub098)</td></tr>"
+            + "<tr><td><b>ASSET READ</b></td><td>\uc790\uc0b0 \ud0dc\uadf8 \ub9ac\ub529 (\uc790\uc0b0\ubc88\ud638, \uc790\uc0b0\uba85, \ubd80\uc11c)</td></tr>"
+            + "<tr><td><b>WARNING LIGHT ON</b></td><td>\ubbf8\ud5c8\uac00 \ubc18\ucd9c \uac10\uc9c0 \uc2dc \uacbd\uad11\ub4f1 \uc810\ub4f1</td></tr>"
+            + "<tr><td><b>BUZZER ON</b></td><td>\ubbf8\ud5c8\uac00 \ubc18\ucd9c \uac10\uc9c0 \uc2dc \ubd80\uc800 \uc54c\ub9bc</td></tr>"
+            + "<tr><td><b>UNAUTHORIZED EXPORT</b></td><td>\ubbf8\ud5c8\uac00 \ubc18\ucd9c \uc54c\ub9bc (EPC, \uc790\uc0b0\ubc88\ud638, \uc790\uc0b0\uba85)</td></tr>"
+            + "<tr><td><b>MASK filtered</b></td><td>EPC Mask \ud544\ud130\ub9c1\ub41c \ud0dc\uadf8</td></tr>"
+            + "</table>"
+
+            + "<h3>\ud654\uba74 \ub85c\uadf8</h3>"
             + "<table cellpadding='3' cellspacing='0' border='0'>"
             + "<tr><td><b>\ud3ec\ub9f7</b></td><td><code>[\uc2dc\uac04] [\ub9ac\ub354\uae30\uba85] \uba54\uc2dc\uc9c0</code></td></tr>"
             + "<tr><td><b>\ucd5c\ub300</b></td><td>1,000\uc904 (\ucd08\uacfc \uc2dc \uc624\ub798\ub41c \ub85c\uadf8 \uc790\ub3d9 \uc0ad\uc81c)</td></tr>"
-            + "<tr><td><b>\ub85c\uadf8 \uc800\uc7a5</b></td><td>\ud604\uc7ac \ub85c\uadf8\ub97c .txt \ud30c\uc77c\ub85c \uc800\uc7a5</td></tr>"
+            + "<tr><td><b>\ub85c\uadf8 \uc800\uc7a5</b></td><td>\ud604\uc7ac \ub85c\uadf8\ub97c .txt \ud30c\uc77c\ub85c \uc218\ub3d9 \uc800\uc7a5</td></tr>"
             + "<tr><td><b>\ub85c\uadf8 \uc9c0\uc6b0\uae30</b></td><td>\ud654\uba74\uc758 \ub85c\uadf8\ub97c \ubaa8\ub450 \uc0ad\uc81c</td></tr>"
+            + "</table>"
+
+            + "<h3>\ud30c\uc77c \ub85c\uadf8 (\uc790\ub3d9 \uc800\uc7a5)</h3>"
+            + "<table cellpadding='3' cellspacing='0' border='0'>"
+            + "<tr><td><b>\uc124\uc815 \ud30c\uc77c</b></td><td><code>config/log.cfg</code></td></tr>"
+            + "<tr><td><b>\ud65c\uc131\ud654</b></td><td><code>log.ui.file.enabled=true</code></td></tr>"
+            + "<tr><td><b>\ud30c\uc77c \uacbd\ub85c</b></td><td><code>log.ui.file.path=logs/ui.log</code></td></tr>"
+            + "<tr><td><b>\ucd5c\ub300 \ud06c\uae30</b></td><td><code>log.ui.file.max.size=10</code> (MB)</td></tr>"
+            + "<tr><td><b>\ub85c\ud14c\uc774\uc158</b></td><td><code>log.ui.file.max.count=5</code> (\ucd5c\ub300 \ud30c\uc77c \uc218)</td></tr>"
+            + "<tr><td><b>\ub85c\ud14c\uc774\uc158 \ub3d9\uc791</b></td><td>ui.log \u2192 ui.log.1 \u2192 ui.log.2 ... (\ucd5c\ub300 \uac1c\uc218 \ucd08\uacfc \uc2dc \uc0ad\uc81c)</td></tr>"
             + "</table>"
 
             + "</body></html>";
@@ -669,14 +712,15 @@ public class MainFrame extends JFrame {
         filterPanel.add(toField);
         filterPanel.add(queryBtn);
 
-        String[] cols = {"\uc54c\ub9bc\uc2dc\uac04", "\ub9ac\ub354\uae30", "EPC", "\uc790\uc0b0\ubc88\ud638", "\uc790\uc0b0\uba85", "RSSI"};
+        String[] cols = {"\uc54c\ub9bc\uc2dc\uac04", "\ub9ac\ub354\uae30", "EPC", "\uc790\uc0b0\ubc88\ud638", "\uc790\uc0b0\uba85", "\ubd80\uc11c", "RSSI"};
         JTable table = createStyledTable(new Object[0][cols.length], cols);
         table.getColumnModel().getColumn(0).setPreferredWidth(130);
         table.getColumnModel().getColumn(1).setPreferredWidth(70);
         table.getColumnModel().getColumn(2).setPreferredWidth(200);
         table.getColumnModel().getColumn(3).setPreferredWidth(80);
         table.getColumnModel().getColumn(4).setPreferredWidth(100);
-        table.getColumnModel().getColumn(5).setPreferredWidth(40);
+        table.getColumnModel().getColumn(5).setPreferredWidth(70);
+        table.getColumnModel().getColumn(6).setPreferredWidth(40);
 
         JLabel countLabel = new JLabel("  \uc870\ud68c \ubc84\ud2bc\uc744 \ub204\ub974\uc138\uc694");
         countLabel.setFont(Theme.SMALL);
@@ -695,7 +739,8 @@ public class MainFrame extends JFrame {
             table.getColumnModel().getColumn(2).setPreferredWidth(200);
             table.getColumnModel().getColumn(3).setPreferredWidth(80);
             table.getColumnModel().getColumn(4).setPreferredWidth(100);
-            table.getColumnModel().getColumn(5).setPreferredWidth(40);
+            table.getColumnModel().getColumn(5).setPreferredWidth(70);
+            table.getColumnModel().getColumn(6).setPreferredWidth(40);
             countLabel.setText("  \ucd1d " + data.size() + "\uac74");
         });
 
@@ -853,6 +898,35 @@ public class MainFrame extends JFrame {
             logPanel.appendLog("Config saved: " + configs.size() + " reader(s)");
             initializeReaders();
             WarningLightController.getInstance().setAutoOffDelayMs(ReaderConfig.getWarningDuration() * 1000);
+            showToast("설정이 저장되었습니다.");
         }
+    }
+
+    private void showToast(String message) {
+        JLabel toast = new JLabel(message, SwingConstants.CENTER);
+        toast.setOpaque(true);
+        toast.setBackground(new Color(0x33, 0x33, 0x33, 0xDD));
+        toast.setForeground(Color.WHITE);
+        toast.setFont(new Font("맑은 고딕", Font.BOLD, 13));
+        toast.setBorder(BorderFactory.createEmptyBorder(10, 24, 10, 24));
+
+        JPanel glass = (JPanel) getGlassPane();
+        glass.setLayout(null);
+        glass.setOpaque(false);
+        glass.add(toast);
+        glass.setVisible(true);
+
+        Dimension ts = toast.getPreferredSize();
+        int x = (getWidth() - ts.width) / 2;
+        int y = 70;
+        toast.setBounds(x, y, ts.width, ts.height);
+
+        Timer timer = new Timer(2000, e -> {
+            glass.remove(toast);
+            glass.setVisible(false);
+            glass.repaint();
+        });
+        timer.setRepeats(false);
+        timer.start();
     }
 }

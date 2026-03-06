@@ -24,9 +24,9 @@ public final class Theme {
     public static final Color CARD_SHADOW = new Color(0, 0, 0, 15);
     public static final Color CARD_TEXT = new Color(0x28, 0x2D, 0x37);
 
-    public static final Color TABLE_HEADER_BG = new Color(0xF5, 0xF6, 0xF8);
-    public static final Color TABLE_HEADER_FG = new Color(0x4A, 0x55, 0x68);
-    public static final Color TABLE_HEADER_BORDER = new Color(0xE2, 0xE5, 0xEA);
+    public static final Color TABLE_HEADER_BG = new Color(0x3A, 0x7C, 0x6A);
+    public static final Color TABLE_HEADER_FG = new Color(0xF0, 0xF8, 0xF4);
+    public static final Color TABLE_HEADER_BORDER = new Color(0x2E, 0x66, 0x56);
     public static final Color TABLE_STRIPE = new Color(0xF8, 0xF9, 0xFA);
     public static final Color TABLE_GRID = new Color(0xEE, 0xEF, 0xF2);
 
@@ -58,8 +58,8 @@ public final class Theme {
     public static final Font LOG = new Font("\ub9d1\uc740 \uace0\ub515", Font.PLAIN, 12);
 
     // --- Dimensions ---
-    public static final int CARD_W = 72;
-    public static final int CARD_H = 42;
+    public static final int CARD_W = 62;
+    public static final int CARD_H = 48;
     public static final int HEADER_H = 52;
     public static final int TABLE_ROW_H = 26;
     public static final int BTN_ROUND = 6;
@@ -193,7 +193,7 @@ public final class Theme {
                 super.paintComponent(g);
             }
         };
-        btn.setFont(BODY);
+        btn.setFont(new Font("\ub9d1\uc740 \uace0\ub515", Font.BOLD, 12));
         btn.setForeground(HEADER_TEXT);
         btn.setOpaque(false);
         btn.setContentAreaFilled(false);
@@ -299,5 +299,71 @@ public final class Theme {
         label.setForeground(SECTION_LABEL_FG);
         label.setBorder(BorderFactory.createEmptyBorder(6, 8, 4, 8));
         return label;
+    }
+
+    // --- Helper: section header with help button ---
+    public static JPanel createSectionHeader(String text, String helpTitle, String helpText) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setOpaque(false);
+
+        JLabel label = createSectionLabel(text);
+        panel.add(label, BorderLayout.WEST);
+
+        JLabel helpBtn = new JLabel(" ? ") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = getWidth(), h = getHeight();
+                int d = Math.min(w, h) - 4;
+                int x = (w - d) / 2, y = (h - d) / 2;
+                if (getMousePosition() != null) {
+                    g2.setColor(new Color(0x3B, 0x82, 0xF6, 30));
+                } else {
+                    g2.setColor(new Color(0x3B, 0x82, 0xF6, 15));
+                }
+                g2.fillOval(x, y, d, d);
+                g2.setColor(new Color(0x3B, 0x82, 0xF6));
+                g2.setStroke(new BasicStroke(1.2f));
+                g2.drawOval(x, y, d, d);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        helpBtn.setFont(new Font("\ub9d1\uc740 \uace0\ub515", Font.BOLD, 11));
+        helpBtn.setForeground(new Color(0x3B, 0x82, 0xF6));
+        helpBtn.setHorizontalAlignment(SwingConstants.CENTER);
+        helpBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        helpBtn.setPreferredSize(new Dimension(22, 22));
+        helpBtn.setToolTipText(helpTitle);
+        helpBtn.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                JTextArea ta = new JTextArea(helpText);
+                ta.setEditable(false);
+                ta.setLineWrap(true);
+                ta.setWrapStyleWord(true);
+                ta.setFont(BODY);
+                ta.setBackground(new Color(0xF8, 0xF9, 0xFA));
+                ta.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+                JScrollPane sp = new JScrollPane(ta);
+                sp.setPreferredSize(new Dimension(460, 320));
+                sp.setBorder(BorderFactory.createLineBorder(new Color(0xDA, 0xDE, 0xE6)));
+                JOptionPane.showMessageDialog(
+                    SwingUtilities.getWindowAncestor(panel),
+                    sp, helpTitle, JOptionPane.PLAIN_MESSAGE);
+            }
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) { helpBtn.repaint(); }
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) { helpBtn.repaint(); }
+        });
+
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 4));
+        rightPanel.setOpaque(false);
+        rightPanel.add(helpBtn);
+        panel.add(rightPanel, BorderLayout.CENTER);
+
+        return panel;
     }
 }

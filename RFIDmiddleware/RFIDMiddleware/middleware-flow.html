@@ -99,14 +99,19 @@ flowchart TD
 
     DB_INSERT["tag_reads INSERT<br/>(BlockingQueue → 배치 처리<br/>50건/500ms)"]
     RECENT["최근 태그 목록 추가"]
+    LOG_TAG["로그: TAG READ<br/>(EPC, RSSI, ANT)"]
+    LOG_ASSET["로그: ASSET READ<br/>(자산번호, 자산명, 부서)"]
 
     ALERT_DEDUP{"shouldAlert<br/>30초 내 중복?"}
     LIGHT_CHECK{"경광등 설정<br/>적용(1)?"}
     BUZZER_CHECK{"부저 설정<br/>적용(1)?"}
     LIGHT_ON["경광등 ON<br/>(릴레이1 빨간등)<br/>설정시간 자동 소등"]
+    LOG_LIGHT["로그: WARNING LIGHT ON"]
     BUZZER_ON["부저 ON<br/>(릴레이2)<br/>설정시간 자동 OFF"]
+    LOG_BUZZER["로그: BUZZER ON"]
     ALERT_DB["export_alerts INSERT<br/>(단건 즉시 실행)"]
-    LOG_ALERT["로그 기록<br/>UNAUTHORIZED EXPORT"]
+    LOG_ALERT["로그: UNAUTHORIZED EXPORT"]
+    LOG_FILE["로그 파일 저장<br/>(logs/ui.log)<br/>로테이션 지원"]
 
     SKIP_LOG["MASK 필터 로그"]
     NORMAL["일반 태그 처리<br/>(자산 아님)"]
@@ -127,23 +132,39 @@ flowchart TD
     DEDUP -->|"캐시 HIT<br/>(중복)"| UPDATE_ONLY["횟수만 업데이트"]
     DEDUP -->|"캐시 MISS<br/>(신규)"| DB_INSERT
     DB_INSERT --> RECENT
+    RECENT --> LOG_TAG
+    RECENT -->|"자산 EPC"| LOG_ASSET
 
     ALERT_DEDUP -->|"중복"| DISPLAY
     ALERT_DEDUP -->|"신규 알림"| LIGHT_CHECK
     LIGHT_CHECK -->|"적용"| LIGHT_ON
+    LIGHT_ON --> LOG_LIGHT
     LIGHT_CHECK -->|"미적용"| BUZZER_CHECK
-    LIGHT_ON --> BUZZER_CHECK
+    LOG_LIGHT --> BUZZER_CHECK
     BUZZER_CHECK -->|"적용"| BUZZER_ON
+    BUZZER_ON --> LOG_BUZZER
     BUZZER_CHECK -->|"미적용"| ALERT_DB
-    BUZZER_ON --> ALERT_DB
+    LOG_BUZZER --> ALERT_DB
     ALERT_DB --> LOG_ALERT
     LOG_ALERT --> DISPLAY
+
+    LOG_TAG --> LOG_FILE
+    LOG_ASSET --> LOG_FILE
+    LOG_LIGHT --> LOG_FILE
+    LOG_BUZZER --> LOG_FILE
+    LOG_ALERT --> LOG_FILE
+    SKIP_LOG --> LOG_FILE
 
     style START fill:#0078FF,color:white
     style LIGHT_ON fill:#DC0000,color:white
     style BUZZER_ON fill:#1E96DC,color:white
     style ALERT_DB fill:#FF6B6B,color:white
     style LOG_ALERT fill:#FFB400,color:white
+    style LOG_LIGHT fill:#FFB400,color:white
+    style LOG_BUZZER fill:#FFB400,color:white
+    style LOG_TAG fill:#FFB400,color:white
+    style LOG_ASSET fill:#FFB400,color:white
+    style LOG_FILE fill:#8B5CF6,color:white
     style DB_INSERT fill:#2ECC71,color:white
     style PERMITTED fill:#E8F5E8,stroke:#006E00
     style NORMAL fill:#f0f0f0
@@ -156,7 +177,7 @@ flowchart TD
 <h2>3. 리더기 상태 카드 인디케이터</h2>
 <div class="mermaid">
 graph LR
-    subgraph STATUS["상태 색상 (좌측 바 + 원)"]
+    subgraph STATUS["상태 색상 (원형 아이콘, 내부에 순번 표시)"]
         S1["⬜ 미연결<br/>(회색)"]
         S2["🟨 연결 중<br/>(노랑)"]
         S3["🟩 연결됨<br/>(초록)"]
@@ -164,17 +185,17 @@ graph LR
         S5["🟥 오류<br/>(빨강)"]
     end
 
-    subgraph IND["인디케이터 3종 (우측)"]
+    subgraph IND["인디케이터 3종 (카드 우측 세로 배치)"]
         direction TB
-        I1["🟢 비프음<br/>녹색<br/>READING시 활성화"]
-        I2["🔵 부저<br/>파랑<br/>릴레이 ON시 활성화"]
-        I3["🟠 경광등<br/>주황<br/>릴레이 ON시 활성화"]
+        I1["🔊 스피커 (비프음)<br/>녹색<br/>READING시 활성화"]
+        I2["🚨 경광등 (경광등)<br/>주황<br/>릴레이 ON시 활성화"]
+        I3["🔔 벨 (부저)<br/>파랑<br/>릴레이 ON시 활성화"]
     end
 
-    subgraph SHAPE["모양별 상태"]
-        SH1["□ 회색 테두리 사각형<br/>→ 미사용 (config OFF)"]
-        SH2["● 컬러 원형<br/>→ 사용 (config ON, 대기)"]
-        SH3["● 컬러 원형 깜박임<br/>→ 활성화 (이벤트 발생)"]
+    subgraph SHAPE["아이콘 상태 표시"]
+        SH1["회색 아이콘<br/>→ 미사용 (config OFF)"]
+        SH2["컬러 아이콘<br/>→ 사용 (config ON, 대기)"]
+        SH3["컬러 아이콘 + 깜박임 글로우<br/>→ 활성화 (이벤트 발생)"]
     end
 
     style STATUS fill:#f8f9fa,stroke:#1B2A4A
@@ -283,6 +304,45 @@ flowchart LR
     style BG fill:#f8f9fa,stroke:#1B2A4A
     style TCP fill:#fff8e1,stroke:#b45309
     style EDT fill:#dbeafe,stroke:#0078FF
+</div>
+</div>
+
+<!-- 7. 로그 시스템 -->
+<div class="diagram-section">
+<h2>7. 로그 시스템</h2>
+<div class="mermaid">
+flowchart TB
+    subgraph LOG_SOURCE["로그 발생원"]
+        direction TB
+        L1["TAG READ<br/>일반 태그 리딩"]
+        L2["ASSET READ<br/>자산 태그 리딩<br/>(자산번호, 자산명, 부서)"]
+        L3["WARNING LIGHT ON<br/>경광등 점등"]
+        L4["BUZZER ON<br/>부저 알림"]
+        L5["UNAUTHORIZED EXPORT<br/>미허가 반출"]
+        L6["MASK filtered<br/>EPC Mask 필터링"]
+    end
+
+    LP["LogPanel<br/>(하단 로그 패널)<br/>최대 1,000줄"]
+
+    subgraph LOG_FILE["파일 로그 (자동 저장)"]
+        direction TB
+        CFG["config/log.cfg<br/>━━━━━━━━━━━━<br/>log.ui.file.enabled=true<br/>log.ui.file.path=logs/ui.log<br/>log.ui.file.max.size=10 (MB)<br/>log.ui.file.max.count=5"]
+        ROTATE["로테이션<br/>━━━━━━━━━━━━<br/>ui.log → ui.log.1<br/>ui.log.1 → ui.log.2<br/>... (최대 개수 초과 시 삭제)"]
+    end
+
+    subgraph LOG_MANUAL["수동 저장"]
+        SAVE_BTN["로그 저장 버튼<br/>.txt 파일 다운로드"]
+    end
+
+    LOG_SOURCE --> LP
+    LP --> LOG_FILE
+    LP --> LOG_MANUAL
+    CFG --> ROTATE
+
+    style LOG_SOURCE fill:#fff8e1,stroke:#b45309
+    style LOG_FILE fill:#f3e8ff,stroke:#8B5CF6
+    style LOG_MANUAL fill:#e8ecf1,stroke:#1B2A4A
+    style LP fill:#dbeafe,stroke:#0078FF
 </div>
 </div>
 

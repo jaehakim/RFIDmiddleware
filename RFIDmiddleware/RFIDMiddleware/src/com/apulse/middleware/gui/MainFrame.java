@@ -172,10 +172,12 @@ public class MainFrame extends JFrame {
         JPanel rightButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         rightButtons.setOpaque(false);
 
+        JButton finderBtn = Theme.createHeaderButton("리더기 검색", Theme.createHeaderIcon("search"), e -> openReaderFinderDialog());
         JButton helpBtn = Theme.createHeaderButton("도움말", Theme.createHeaderIcon("help"), e -> showHelpDialog());
         JButton flowBtn = Theme.createHeaderButton("흐름도", Theme.createHeaderIcon("flow"), e -> openFlowDiagram());
         JButton configBtn = Theme.createHeaderButton("설정", Theme.createHeaderIcon("settings"), e -> openConfigDialog());
 
+        rightButtons.add(finderBtn);
         rightButtons.add(helpBtn);
         rightButtons.add(flowBtn);
         rightButtons.add(configBtn);
@@ -886,6 +888,11 @@ public class MainFrame extends JFrame {
                 "브라우저를 열 수 없습니다: " + ex.getMessage(),
                 "오류", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void openReaderFinderDialog() {
+        ReaderFinderDialog dialog = new ReaderFinderDialog(this);
+        dialog.setVisible(true);
     }
 
     private void openConfigDialog() {

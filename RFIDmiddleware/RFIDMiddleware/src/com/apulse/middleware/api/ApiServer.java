@@ -8,6 +8,8 @@ import com.apulse.middleware.reader.ReaderConnection;
 import com.apulse.middleware.reader.ReaderManager;
 import com.apulse.middleware.util.AppLogger;
 
+import com.apulse.readerfinderlib.FixedReaderFinder;
+
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -43,6 +45,7 @@ public class ApiServer {
         server.createContext("/api/control", new ControlHandler());
         server.createContext("/api/tags/recent", new RecentTagsHandler());
         server.createContext("/api/mask", new MaskHandler());
+        server.createContext("/api/reader-finder", new ReaderFinderHandler());
         server.createContext("/swagger", new SwaggerUiHandler());
         server.createContext("/api/openapi.json", new OpenApiHandler());
         server.createContext("/", new DashboardHandler());
@@ -838,6 +841,56 @@ public class ApiServer {
                 + "          \"200\": {\"description\": \"\\uc131\\uacf5\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}}\n"
                 + "        }\n"
                 + "      }\n"
+                + "    },\n"
+
+                // POST /api/reader-finder/discover
+                + "    \"/api/reader-finder/discover\": {\n"
+                + "      \"post\": {\n"
+                + "        \"tags\": [\"Reader Finder\"],\n"
+                + "        \"summary\": \"\\ub124\\ud2b8\\uc6cc\\ud06c \\ub9ac\\ub354\\uae30 \\uac80\\uc0c9\",\n"
+                + "        \"description\": \"\\ub124\\ud2b8\\uc6cc\\ud06c\\uc5d0\\uc11c RFID \\ub9ac\\ub354\\uae30\\ub97c \\uac80\\uc0c9\\ud569\\ub2c8\\ub2e4 (\\uc57d 3\\ucd08 \\uc18c\\uc694)\",\n"
+                + "        \"responses\": {\n"
+                + "          \"200\": {\"description\": \"\\ubc1c\\uacac\\ub41c \\ub9ac\\ub354\\uae30 \\ubaa9\\ub85d\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}}\n"
+                + "        }\n"
+                + "      }\n"
+                + "    },\n"
+
+                // GET/PUT /api/reader-finder/config/{mac}
+                + "    \"/api/reader-finder/config/{mac}\": {\n"
+                + "      \"get\": {\n"
+                + "        \"tags\": [\"Reader Finder\"],\n"
+                + "        \"summary\": \"\\ub9ac\\ub354\\uae30 \\ub124\\ud2b8\\uc6cc\\ud06c \\uc124\\uc815 \\uc870\\ud68c\",\n"
+                + "        \"parameters\": [{\"name\": \"mac\", \"in\": \"path\", \"required\": true, \"schema\": {\"type\": \"string\"}, \"description\": \"MAC \\uc8fc\\uc18c\"}],\n"
+                + "        \"responses\": {\n"
+                + "          \"200\": {\"description\": \"\\uc131\\uacf5\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}},\n"
+                + "          \"404\": {\"description\": \"\\ub9ac\\ub354\\uae30 \\uc5c6\\uc74c\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/ErrorResponse\"}}}}\n"
+                + "        }\n"
+                + "      },\n"
+                + "      \"put\": {\n"
+                + "        \"tags\": [\"Reader Finder\"],\n"
+                + "        \"summary\": \"\\ub9ac\\ub354\\uae30 IP/\\uc11c\\ube0c\\ub137/\\uac8c\\uc774\\ud2b8\\uc6e8\\uc774 \\uc124\\uc815\",\n"
+                + "        \"parameters\": [{\"name\": \"mac\", \"in\": \"path\", \"required\": true, \"schema\": {\"type\": \"string\"}, \"description\": \"MAC \\uc8fc\\uc18c\"}],\n"
+                + "        \"requestBody\": {\n"
+                + "          \"required\": true,\n"
+                + "          \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/ReaderNetworkConfigRequest\"}}}\n"
+                + "        },\n"
+                + "        \"responses\": {\n"
+                + "          \"200\": {\"description\": \"\\uc131\\uacf5\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}},\n"
+                + "          \"400\": {\"description\": \"\\ud544\\uc218 \\ud544\\ub4dc \\ub204\\ub77d\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/ErrorResponse\"}}}}\n"
+                + "        }\n"
+                + "      }\n"
+                + "    },\n"
+
+                // POST /api/reader-finder/restart/{mac}
+                + "    \"/api/reader-finder/restart/{mac}\": {\n"
+                + "      \"post\": {\n"
+                + "        \"tags\": [\"Reader Finder\"],\n"
+                + "        \"summary\": \"\\ub9ac\\ub354\\uae30 \\uc7ac\\uc2dc\\uc791\",\n"
+                + "        \"parameters\": [{\"name\": \"mac\", \"in\": \"path\", \"required\": true, \"schema\": {\"type\": \"string\"}, \"description\": \"MAC \\uc8fc\\uc18c\"}],\n"
+                + "        \"responses\": {\n"
+                + "          \"200\": {\"description\": \"\\uc131\\uacf5\", \"content\": {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/SuccessResponse\"}}}}\n"
+                + "        }\n"
+                + "      }\n"
                 + "    }\n"
 
                 + "  },\n"
@@ -909,6 +962,15 @@ public class ApiServer {
                 + "          \"assetName\": {\"type\": \"string\", \"example\": \"\\ubaa8\\ub2c8\\ud130 27\\uc778\\uce58\"},\n"
                 + "          \"department\": {\"type\": \"string\", \"example\": \"\\uac1c\\ubc1c\\ud300\"},\n"
                 + "          \"possession\": {\"type\": \"integer\", \"example\": 0, \"description\": \"1=\\ubcf4\\uc720, 0=\\ubbf8\\ubcf4\\uc720\"}\n"
+                + "        }\n"
+                + "      },\n"
+
+                + "      \"ReaderNetworkConfigRequest\": {\n"
+                + "        \"type\": \"object\",\n"
+                + "        \"properties\": {\n"
+                + "          \"ip\": {\"type\": \"string\", \"example\": \"192.168.0.100\", \"description\": \"IP \\uc8fc\\uc18c\"},\n"
+                + "          \"subnet\": {\"type\": \"string\", \"example\": \"255.255.255.0\", \"description\": \"\\uc11c\\ube0c\\ub137 \\ub9c8\\uc2a4\\ud06c\"},\n"
+                + "          \"gateway\": {\"type\": \"string\", \"example\": \"192.168.0.1\", \"description\": \"\\uac8c\\uc774\\ud2b8\\uc6e8\\uc774\"}\n"
                 + "        }\n"
                 + "      }\n"
 
@@ -1002,6 +1064,338 @@ public class ApiServer {
                 sendOk(exchange, sb.toString());
             } catch (Exception e) {
                 sendError(exchange, 500, e.getMessage());
+            }
+        }
+    }
+
+    /** POST /api/reader-finder/discover - discover readers on network
+     *  GET  /api/reader-finder/config/{mac} - get reader network config
+     *  PUT  /api/reader-finder/config/{mac} - set reader IP/subnet/gateway
+     *  POST /api/reader-finder/restart/{mac} - restart reader */
+    private class ReaderFinderHandler implements HttpHandler {
+        private static final short FINDER_PORT = 17776;
+
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            try {
+                String method = exchange.getRequestMethod();
+                if ("OPTIONS".equals(method)) {
+                    sendJson(exchange, 204, "");
+                    return;
+                }
+
+                String path = exchange.getRequestURI().getPath();
+                // /api/reader-finder/discover
+                // /api/reader-finder/config/{mac}
+                // /api/reader-finder/restart/{mac}
+                String subPath = path.substring("/api/reader-finder".length());
+
+                if ("/discover".equals(subPath) && "POST".equals(method)) {
+                    handleDiscover(exchange);
+                } else if (subPath.startsWith("/config/") && "GET".equals(method)) {
+                    String mac = URLDecoder.decode(subPath.substring("/config/".length()), "UTF-8");
+                    handleGetConfig(exchange, mac);
+                } else if (subPath.startsWith("/config/") && "PUT".equals(method)) {
+                    String mac = URLDecoder.decode(subPath.substring("/config/".length()), "UTF-8");
+                    handleSetConfig(exchange, mac);
+                } else if (subPath.startsWith("/restart/") && "POST".equals(method)) {
+                    String mac = URLDecoder.decode(subPath.substring("/restart/".length()), "UTF-8");
+                    handleRestart(exchange, mac);
+                } else {
+                    sendError(exchange, 405, "Method not allowed");
+                }
+            } catch (Exception e) {
+                AppLogger.error("ApiServer", "ReaderFinder error", e);
+                sendError(exchange, 500, e.getMessage());
+            }
+        }
+
+        /** Open finder with retry (port may still be held from previous operation) */
+        private int openFinderWithRetry(FixedReaderFinder finder) {
+            int result = -1;
+            for (int retry = 0; retry < 5; retry++) {
+                if (retry > 0) {
+                    try { Thread.sleep(500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                }
+                result = finder.open(FINDER_PORT);
+                if (result == 0) return 0;
+                AppLogger.info("ReaderFinder", "Retry open (" + (retry + 1) + "/5), error: " + result);
+            }
+            return result;
+        }
+
+        private void handleDiscover(HttpExchange exchange) throws IOException {
+            final List<Map<String, String>> devices = Collections.synchronizedList(new ArrayList<>());
+            FixedReaderFinder finder = FixedReaderFinder.getInstance();
+
+            try {
+                int openResult = openFinderWithRetry(finder);
+                if (openResult != 0) {
+                    sendError(exchange, 500, "Failed to open reader finder (port " + FINDER_PORT + "), error: " + openResult);
+                    return;
+                }
+
+                finder.setDeviceDiscoveryCallback((reportData, reportDataLen) -> {
+                    String deviceString = new String(reportData, 0, reportDataLen);
+                    AppLogger.info("ReaderFinder", "Discovered: " + deviceString);
+
+                    Map<String, String> deviceInfo = new LinkedHashMap<>();
+                    String[] parts = deviceString.split(";");
+                    for (String part : parts) {
+                        String[] kv = part.split("=", 2);
+                        if (kv.length == 2) {
+                            deviceInfo.put(kv[0].trim(), kv[1].trim());
+                        }
+                    }
+                    if (!deviceInfo.isEmpty()) {
+                        devices.add(deviceInfo);
+                    }
+                });
+
+                finder.discovery();
+
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            } finally {
+                finder.close();
+            }
+
+            // Fetch DHCP status: new session for getReaderConfig
+            if (!devices.isEmpty()) {
+                try {
+                    // Retry open with delay (port may not be released immediately)
+                    int openResult2 = -1;
+                    for (int retry = 0; retry < 5; retry++) {
+                        try { Thread.sleep(500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                        openResult2 = finder.open(FINDER_PORT);
+                        if (openResult2 == 0) break;
+                        AppLogger.info("ReaderFinder", "Retry open (" + (retry + 1) + "/5), error: " + openResult2);
+                    }
+                    if (openResult2 == 0) {
+                        finder.setDeviceDiscoveryCallback((d, l) -> {});
+                        finder.discovery();
+                        try { Thread.sleep(3000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+
+                        for (Map<String, String> dev : devices) {
+                            String mac = dev.getOrDefault("mac_address", dev.getOrDefault("mac", ""));
+                            if (!mac.isEmpty()) {
+                                try {
+                                    String[] config = new String[1];
+                                    int result = finder.getReaderConfig(mac, config);
+                                    if (result == 0 && config[0] != null) {
+                                        for (String part : config[0].split(";")) {
+                                            String[] kv = part.split("=", 2);
+                                            if (kv.length == 2) {
+                                                String key = kv[0].trim();
+                                                String val = kv[1].trim();
+                                                if ("dhcp".equals(key)) dev.put("dhcp", val);
+                                                else if ("port".equals(key)) dev.put("port", val);
+                                                else if ("mask".equals(key)) dev.put("subnet", val);
+                                                else if ("gateway".equals(key)) dev.put("gateway", val);
+                                            }
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    AppLogger.warn("ReaderFinder", "Failed to get config for " + mac + ": " + e.getMessage());
+                                }
+                            }
+                        }
+                    }
+                } finally {
+                    finder.close();
+                }
+            }
+
+            // Build JSON response
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < devices.size(); i++) {
+                if (i > 0) sb.append(",");
+                Map<String, String> dev = devices.get(i);
+                sb.append("{");
+                int j = 0;
+                for (Map.Entry<String, String> entry : dev.entrySet()) {
+                    if (j > 0) sb.append(",");
+                    sb.append(toJsonString(entry.getKey())).append(":").append(toJsonString(entry.getValue()));
+                    j++;
+                }
+                sb.append("}");
+            }
+            sb.append("]");
+            sendOk(exchange, sb.toString());
+            AppLogger.info("ReaderFinder", "Discovery complete, found " + devices.size() + " device(s)");
+        }
+
+        private void handleGetConfig(HttpExchange exchange, String mac) throws IOException {
+            FixedReaderFinder finder = FixedReaderFinder.getInstance();
+            try {
+                int openResult = openFinderWithRetry(finder);
+                if (openResult != 0) {
+                    sendError(exchange, 500, "Failed to open reader finder, error: " + openResult);
+                    return;
+                }
+
+                // Need to discover first so the finder knows about the device
+                finder.setDeviceDiscoveryCallback((reportData, reportDataLen) -> {});
+                finder.discovery();
+                try { Thread.sleep(3000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+
+                String[] config = new String[1];
+                int result = finder.getReaderConfig(mac, config);
+                if (result != 0 || config[0] == null) {
+                    sendError(exchange, 404, "Failed to get config for MAC: " + mac + ", error: " + result);
+                    return;
+                }
+
+                // Parse config string like "ip=x;subnet=y;gateway=z;..."
+                Map<String, String> configMap = new LinkedHashMap<>();
+                configMap.put("mac", mac);
+                String[] parts = config[0].split(";");
+                for (String part : parts) {
+                    String[] kv = part.split("=", 2);
+                    if (kv.length == 2) {
+                        configMap.put(kv[0].trim(), kv[1].trim());
+                    }
+                }
+
+                StringBuilder sb = new StringBuilder("{");
+                int j = 0;
+                for (Map.Entry<String, String> entry : configMap.entrySet()) {
+                    if (j > 0) sb.append(",");
+                    sb.append(toJsonString(entry.getKey())).append(":").append(toJsonString(entry.getValue()));
+                    j++;
+                }
+                sb.append("}");
+                sendOk(exchange, sb.toString());
+            } finally {
+                finder.close();
+            }
+        }
+
+        private void handleSetConfig(HttpExchange exchange, String mac) throws IOException {
+            String body = readRequestBody(exchange);
+            Map<String, String> fields = parseJsonFields(body);
+
+            if (fields.isEmpty()) {
+                sendError(exchange, 400, "No config fields provided (dhcp, ip, subnet, gateway)");
+                return;
+            }
+
+            FixedReaderFinder finder = FixedReaderFinder.getInstance();
+            try {
+                int openResult = openFinderWithRetry(finder);
+                if (openResult != 0) {
+                    sendError(exchange, 500, "Failed to open reader finder, error: " + openResult);
+                    return;
+                }
+
+                // Discover first
+                finder.setDeviceDiscoveryCallback((reportData, reportDataLen) -> {});
+                finder.discovery();
+                try { Thread.sleep(3000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+
+                // Read current full config first (SDK requires full config string), retry on failure
+                String[] currentConfig = new String[1];
+                int result = finder.getReaderConfig(mac, currentConfig);
+                if (result != 0 || currentConfig[0] == null) {
+                    AppLogger.warn("ReaderFinder", "getReaderConfig failed (error: " + result + "), retrying with new session...");
+                    finder.close();
+                    for (int retry = 0; retry < 3; retry++) {
+                        try { Thread.sleep(1000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                        int retryOpen = finder.open(FINDER_PORT);
+                        if (retryOpen != 0) continue;
+                        finder.setDeviceDiscoveryCallback((d, l) -> {});
+                        finder.discovery();
+                        try { Thread.sleep(3000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                        result = finder.getReaderConfig(mac, currentConfig);
+                        if (result == 0 && currentConfig[0] != null) break;
+                        AppLogger.warn("ReaderFinder", "getReaderConfig retry " + (retry + 1) + " failed, error: " + result);
+                        finder.close();
+                    }
+                    if (result != 0 || currentConfig[0] == null) {
+                        sendError(exchange, 404, "Failed to get current config for MAC: " + mac + ", error: " + result);
+                        return;
+                    }
+                }
+
+                // Parse current config into map
+                Map<String, String> configMap = new LinkedHashMap<>();
+                for (String part : currentConfig[0].split(";")) {
+                    String[] kv = part.split("=", 2);
+                    if (kv.length == 2) {
+                        configMap.put(kv[0].trim(), kv[1].trim());
+                    }
+                }
+
+                // Merge requested changes
+                if (fields.containsKey("dhcp")) configMap.put("dhcp", fields.get("dhcp"));
+                if (fields.containsKey("ip")) configMap.put("ip", fields.get("ip"));
+                if (fields.containsKey("subnet")) configMap.put("mask", fields.get("subnet"));
+                if (fields.containsKey("gateway")) configMap.put("gateway", fields.get("gateway"));
+
+                // Build full config string
+                StringBuilder configStr = new StringBuilder();
+                for (Map.Entry<String, String> entry : configMap.entrySet()) {
+                    if (configStr.length() > 0) configStr.append(";");
+                    configStr.append(entry.getKey()).append("=").append(entry.getValue());
+                }
+
+                // Need new session for setReaderConfig (retry open for port release)
+                finder.close();
+                openResult = -1;
+                for (int retry = 0; retry < 5; retry++) {
+                    try { Thread.sleep(500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                    openResult = finder.open(FINDER_PORT);
+                    if (openResult == 0) break;
+                    AppLogger.info("ReaderFinder", "Retry open for set (" + (retry + 1) + "/5), error: " + openResult);
+                }
+                if (openResult != 0) {
+                    sendError(exchange, 500, "Failed to reopen reader finder, error: " + openResult);
+                    return;
+                }
+                finder.setDeviceDiscoveryCallback((reportData, reportDataLen) -> {});
+                finder.discovery();
+                try { Thread.sleep(3000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+
+                result = finder.setReaderConfig(mac, configStr.toString());
+                if (result != 0) {
+                    sendError(exchange, 500, "Failed to set config for MAC: " + mac + ", error: " + result);
+                    return;
+                }
+
+                AppLogger.info("ReaderFinder", "Config set for " + mac + ": " + configStr);
+                sendOk(exchange, "{\"message\":\"Config updated for " + escapeJson(mac) + "\",\"config\":" + toJsonString(configStr.toString()) + "}");
+            } finally {
+                finder.close();
+            }
+        }
+
+        private void handleRestart(HttpExchange exchange, String mac) throws IOException {
+            FixedReaderFinder finder = FixedReaderFinder.getInstance();
+            try {
+                int openResult = openFinderWithRetry(finder);
+                if (openResult != 0) {
+                    sendError(exchange, 500, "Failed to open reader finder, error: " + openResult);
+                    return;
+                }
+
+                // Discover first
+                finder.setDeviceDiscoveryCallback((reportData, reportDataLen) -> {});
+                finder.discovery();
+                try { Thread.sleep(3000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+
+                int result = finder.restartReader(mac);
+                if (result != 0) {
+                    sendError(exchange, 500, "Failed to restart reader: " + mac + ", error: " + result);
+                    return;
+                }
+
+                AppLogger.info("ReaderFinder", "Restart requested for " + mac);
+                sendOk(exchange, "{\"message\":\"Restart requested for " + escapeJson(mac) + "\"}");
+            } finally {
+                finder.close();
             }
         }
     }

@@ -155,6 +155,12 @@ public final class Theme {
                         g2.drawLine(10, 5, 7, 9);
                         break;
 
+                    case "search": // 돋보기
+                        g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        g2.drawOval(1, 1, 8, 8);
+                        g2.drawLine(8, 8, 12, 12);
+                        break;
+
                     case "settings": // 톱니바퀴
                         g2.setStroke(new BasicStroke(1.3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                         g2.drawOval(4, 4, 6, 6);
